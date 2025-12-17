@@ -123,8 +123,12 @@ app.use('/api/parents', parentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/schedule', scheduleRoutes);
 
-// Welcome route
+// Welcome route - serve frontend index if present
 app.get("/", (req, res) => {
+  const indexHtml = path.join(__dirname, '..', 'frontend', 'dist', 'index.html');
+  if (fs.existsSync(indexHtml)) {
+    return res.sendFile(indexHtml);
+  }
   res.send("KavyaLearn API is running...");
 });
 
