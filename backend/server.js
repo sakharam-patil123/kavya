@@ -3,6 +3,7 @@ const express = require("express");
 // Touch: update timestamp to force nodemon restart when routes/controllers change
 const dotenv = require("dotenv");
 const path = require("path");
+const fs = require('fs');
 const cors = require("cors");
 const connectDB = require("./config/db");
 const morgan = require('morgan');
@@ -126,6 +127,18 @@ app.use('/api/schedule', scheduleRoutes);
 app.get("/", (req, res) => {
   res.send("KavyaLearn API is running...");
 });
+
+// Serve static frontend if it exists (production builds)
+const distPath = path.join(__dirname, '..', 'frontend', 'dist');
+if (fs.existsSync(distPath)) {
+  console.log('➡ Serving frontend from', distPath);
+  app.use(express.static(distPath));
+  // For SPA client-side routing, send index.html for any non-API route
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api')) return res.status(404).end();
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
 // 404 handler
 app.use((req, res, next) => {
