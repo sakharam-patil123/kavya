@@ -133,10 +133,21 @@ const distPath = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(distPath)) {
   console.log('➡ Serving frontend from', distPath);
   app.use(express.static(distPath));
-  // For SPA client-side routing, send index.html for any non-API route
-  app.get('*', (req, res) => {
-    if (req.path.startsWith('/api')) return res.status(404).end();
-    res.sendFile(path.join(distPath, 'index.html'));
+  // For SPA client-side routing, send index.html for any non-API GET request.
+  // Use a middleware rather than app.get('*') to avoid path-to-regexp parsing issues on some Node/express versions.
+  app.use((req, res, next) => {
+    try {
+      if (req.method !== 'GET') return next();
+      if (req.path.startsWith('/api')) return next();
+      const indexHtml = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexHtml)) {
+        return res.sendFile(indexHtml);
+      }
+      return next();
+    } catch (err) {
+      console.error('Error serving SPA index:', err);
+      return next(err);
+    }
   });
 }
 
