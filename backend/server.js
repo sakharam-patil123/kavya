@@ -173,10 +173,54 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`
 🚀 Server running on port ${PORT}
 👉 API Documentation: http://localhost:${PORT}/api-docs
 📝 MongoDB URI: ${process.env.MONGO_URI}
   `);
+});
+
+// Graceful shutdown handler for SIGTERM (Railway, Docker, etc.)
+const gracefulShutdown = async (signal) => {
+  console.log(`\n⚠️  ${signal} received: Starting graceful shutdown...`);
+  
+  // Stop accepting new connections
+  server.close(async () => {
+    console.log('✅ HTTP server closed');
+    
+    try {
+      // Close database connection
+      const mongoose = require('mongoose');
+      await mongoose.connection.close();
+      console.log('✅ MongoDB connection closed');
+      
+      console.log('👋 Graceful shutdown completed');
+      process.exit(0);
+    } catch (err) {
+      console.error('❌ Error during shutdown:', err);
+      process.exit(1);
+    }
+  });
+  
+  // Force shutdown after 30 seconds if graceful shutdown hangs
+  setTimeout(() => {
+    console.error('⏰ Forced shutdown after timeout');
+    process.exit(1);
+  }, 30000);
+};
+
+// Handle shutdown signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught errors
+process.on('unhandledRejection', (err) => {
+  console.error('❌ Unhandled Promise Rejection:', err);
+  gracefulShutdown('UNHANDLED_REJECTION');
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+  gracefulShutdown('UNCAUGHT_EXCEPTION');
 });
