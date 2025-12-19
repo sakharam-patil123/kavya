@@ -90,6 +90,15 @@ export default function Payment() {
           if (!activateRes.ok) {
             const err = await activateRes.json().catch(() => ({}));
             console.warn('Failed to activate enrollment on server:', err);
+          } else {
+            console.log('✅ Enrollment activated successfully!');
+            // Dispatch custom event to notify Dashboard and Profile to refresh
+            try {
+              window.dispatchEvent(new Event('enrollmentUpdated'));
+              console.log('📢 Event dispatched: enrollmentUpdated');
+            } catch (e) {
+              console.warn('Could not dispatch enrollmentUpdated event', e);
+            }
           }
         } catch (err) {
           console.warn('Activation request failed:', err);

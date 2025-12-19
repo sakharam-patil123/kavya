@@ -46,6 +46,9 @@ exports.getProgressOverview = async (req, res) => {
       user.totalHoursLearned ||
       0;
     const achievementsCount = (user.achievements || []).length;
+    
+    console.log('📊 Progress API: Enrolled Courses =', enrolledCoursesCount);
+    console.log('⏰ Progress API: Learning Hours =', learningHours);
 
     // Average course completion across enrolled courses
     let avgCompletion = 0;

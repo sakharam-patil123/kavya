@@ -152,6 +152,10 @@ exports.completeLesson = async (req, res) => {
     if (hoursSpent) {
       enrollment.hoursSpent = (enrollment.hoursSpent || 0) + hoursSpent;
       student.totalHoursLearned = (student.totalHoursLearned || 0) + hoursSpent;
+      console.log('⏰ Lesson Complete: Updated hours -', {
+        courseHours: enrollment.hoursSpent,
+        totalHours: student.totalHoursLearned
+      });
     }
 
     // Get course to calculate completion percentage

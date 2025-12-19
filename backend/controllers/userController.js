@@ -121,13 +121,20 @@ const getUserProfile = async (req, res) => {
     try {
         const user = await User.findById(req.user._id)
             .select('-password')
-            .populate('enrolledCourses.course', 'title')
+            .populate('enrolledCourses.course', 'title thumbnail duration lessons')
             .populate('achievements');
         
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-
+        console.log('👤 User Profile API - User ID:', req.user.id);
+        console.log('📚 User Profile API - Enrolled Courses Count:', user.enrolledCourses?.length || 0);
+        console.log('⏰ User Profile API - Total Hours Learned:', user.totalHoursLearned || 0);
+        console.log('📋 User Profile API - Enrolled Courses Details:', JSON.stringify(user.enrolledCourses?.map(ec => ({ 
+            course: ec.course?.title, 
+            hoursSpent: ec.hoursSpent,
+            completionPercentage: ec.completionPercentage 
+        })), null, 2));
         // Calculate performance metrics
         const totalCourses = user.enrolledCourses ? user.enrolledCourses.length : 0;
         const hoursLearned = user.totalHoursLearned || 0;
@@ -161,6 +168,8 @@ const getUserProfile = async (req, res) => {
             createdAt: user.createdAt,
             avatar: user.avatar,
             streakDays: user.streakDays || 0,
+            enrolledCourses: user.enrolledCourses || [],
+            achievements: user.achievements || [],
             stats: {
                 totalCourses,
                 hoursLearned,

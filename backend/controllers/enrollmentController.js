@@ -10,15 +10,30 @@ exports.createEnrollment = async (req, res) => {
     try {
         const { courseId } = req.body;
         
+        console.log('📝 Creating enrollment for courseId:', courseId);
+        
         if (!courseId) {
             return res.status(400).json({ message: 'Course ID is required' });
+        }
+
+        // Check if courseId is a valid MongoDB ObjectId
+        const mongoose = require('mongoose');
+        if (!mongoose.Types.ObjectId.isValid(courseId)) {
+            console.warn('⚠️ Invalid courseId format:', courseId);
+            return res.status(400).json({ 
+                message: 'Invalid course ID format. Please select a valid course from the backend.',
+                invalidCourseId: courseId
+            });
         }
 
         // Verify course exists
         const course = await Course.findById(courseId);
         if (!course) {
+            console.warn('⚠️ Course not found:', courseId);
             return res.status(404).json({ message: 'Course not found' });
         }
+        
+        console.log('✅ Course found:', course.title);
 
         // Check if user already enrolled (active or pending)
         const existingEnrollment = await Enrollment.findOne({

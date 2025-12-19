@@ -156,14 +156,21 @@ function Dashboard() {
             Authorization: `Bearer ${token}`
           }
         });
+        console.log('🌐 Dashboard: API Response Status:', userProfileRes.status);
         if (userProfileRes.ok) {
           const userProfileData = await userProfileRes.json();
+          console.log('📦 Dashboard: Full API Response:', userProfileData);
           const badges = [];
 
           if (userProfileData.enrolledCourses) {
-            setTotalCourses(userProfileData.enrolledCourses.length);
+            const coursesCount = userProfileData.enrolledCourses.length;
+            console.log('📚 Dashboard: Total Courses =', coursesCount);
+            console.log('📚 Dashboard: Enrolled Courses Array:', userProfileData.enrolledCourses);
+            setTotalCourses(coursesCount);
             // Sum up hours from all enrolled courses
             const totalHours = userProfileData.enrolledCourses.reduce((sum, course) => sum + (course.hoursSpent || 0), 0);
+            console.log('⏰ Dashboard: Hours Learned =', totalHours);
+            console.log('⏰ Dashboard: Hours Breakdown:', userProfileData.enrolledCourses.map(c => ({ course: c.course?.title, hours: c.hoursSpent })));
             setHoursLearned(totalHours);
 
             // Check for Fast Learner badge (5 courses in 30 days)
@@ -261,7 +268,30 @@ function Dashboard() {
         console.warn('Could not load dashboard data', err);
       }
     }
+    
     loadProfile();
+
+    // Re-fetch data when window regains focus (e.g., after enrolling in another tab)
+    const handleFocus = () => {
+      console.log('🔄 Dashboard: Window focused, reloading data...');
+      loadProfile();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    // Re-fetch data when enrollment happens (custom event)
+    const handleEnrollmentUpdate = () => {
+      console.log('🔄 Dashboard: Enrollment updated! Reloading data...');
+      console.log('🔔 ALERT: Dashboard received enrollmentUpdated event!');
+      loadProfile();
+    };
+    window.addEventListener('enrollmentUpdated', handleEnrollmentUpdate);
+    console.log('✅ Dashboard: Event listeners registered');
+    console.log('✅ Dashboard: Ready to receive enrollmentUpdated events');
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('enrollmentUpdated', handleEnrollmentUpdate);
+    };
   }, []);
 
   // ✅ Handle setting reminder for upcoming class

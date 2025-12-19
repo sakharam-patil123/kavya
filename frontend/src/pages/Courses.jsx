@@ -2039,6 +2039,65 @@ export default function Courses() {
                         } catch (err) {
                           console.warn('Failed to persist watched lessons', err);
                         }
+                        
+                        // Call backend API to track hours and mark lesson complete
+                        (async () => {
+                          try {
+                            const token = localStorage.getItem('token');
+                            const courseId = new URLSearchParams(location.search || window.location.search).get('id');
+                            
+                            if (!token || !courseId) {
+                              console.log('⚠️ No token or courseId, skipping backend lesson completion');
+                              return;
+                            }
+                            
+                            // Get course lessons to find the lesson ID
+                            const lessonsRes = await fetch(`/api/courses/${courseId}`, {
+                              headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${token}`
+                              }
+                            });
+                            
+                            if (!lessonsRes.ok) {
+                              console.warn('⚠️ Failed to fetch course details');
+                              return;
+                            }
+                            
+                            const courseData = await lessonsRes.json();
+                            const backendLesson = courseData.lessons?.find(l => l.title === lesson.title);
+                            
+                            if (!backendLesson || !backendLesson._id) {
+                              console.log('⚠️ Lesson not found in backend, title:', lesson.title);
+                              return;
+                            }
+                            
+                            // Each lesson is assumed to be 0.75 hours (45 minutes)
+                            const hoursSpent = 0.75;
+                            
+                            const completeRes = await fetch(`/api/student/courses/${courseId}/lessons/${backendLesson._id}/complete`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${token}`
+                              },
+                              body: JSON.stringify({ hoursSpent })
+                            });
+                            
+                            if (completeRes.ok) {
+                              const data = await completeRes.json();
+                              console.log('✅ Lesson completed! Hours tracked:', data);
+                              // Trigger Dashboard and Profile refresh
+                              window.dispatchEvent(new Event('enrollmentUpdated'));
+                            } else {
+                              const errorText = await completeRes.text();
+                              console.warn('⚠️ Failed to complete lesson:', errorText);
+                            }
+                          } catch (err) {
+                            console.warn('⚠️ Error marking lesson complete:', err);
+                          }
+                        })();
+                        
                         return updated;
                       });
                     }

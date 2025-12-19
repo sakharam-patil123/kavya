@@ -7,9 +7,11 @@ import './StudentDashboard.css';
 const StudentDashboard = () => {
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [enrolledCourses, setEnrolledCourses] = useState([]);
 
   useEffect(() => {
     loadDashboard();
+    loadEnrolledCourses();
   }, []);
 
   const loadDashboard = async () => {
@@ -20,6 +22,15 @@ const StudentDashboard = () => {
       console.error('Failed to load dashboard:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadEnrolledCourses = async () => {
+    try {
+      const res = await axiosClient.get('/api/student/courses');
+      setEnrolledCourses(res.data.data || []);
+    } catch (error) {
+      console.error('Failed to load enrolled courses:', error);
     }
   };
 
@@ -45,8 +56,8 @@ const StudentDashboard = () => {
           <div className="stat-card">
             <div className="stat-icon">📚</div>
             <div className="stat-content">
-              <h3>{dashboard.overview.totalCoursesEnrolled}</h3>
-              <p>Courses Enrolled</p>
+              <h3>{enrolledCourses.length}</h3>
+              <p>Total Courses</p>
             </div>
           </div>
 
@@ -112,6 +123,49 @@ const StudentDashboard = () => {
           </div>
         </div>
 
+        {/* Your Courses Section */}
+        <div className="your-courses-section">
+          <h2>Your Courses</h2>
+          {enrolledCourses.length === 0 ? (
+            <div className="empty-courses">
+              <p>No courses enrolled yet. Start your learning journey today!</p>
+              <Link to="/subscription" className="enroll-button">Browse Courses</Link>
+            </div>
+          ) : (
+            <div className="courses-list">
+              {enrolledCourses.map((course) => (
+                <div key={course._id} className="course-item">
+                  <div className="course-header">
+                    <h4>{course.title}</h4>
+                    {course.completionPercentage === 100 && (
+                      <span className="completed-badge">✓ Completed</span>
+                    )}
+                  </div>
+                  <p className="course-instructor">
+                    By {course.instructor?.fullName || 'Unknown Instructor'}
+                  </p>
+                  <div className="course-progress">
+                    <div className="progress-info">
+                      <span>Progress</span>
+                      <span className="progress-percentage">{course.completionPercentage}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill" 
+                        style={{ width: `${course.completionPercentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  <div className="course-meta">
+                    <span>📚 {course.completedLessons}/{course.totalLessons} Lessons</span>
+                    <span>⏱️ {course.hoursSpent}h</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Recommendations */}
         <div className="recommendations">
           <h2>Recommendations</h2>
@@ -125,7 +179,7 @@ const StudentDashboard = () => {
                     <p>You have {dashboard.overview.inProgressCourses} course(s) in progress</p>
                   </div>
                 </>
-              ) : dashboard.overview.totalCoursesEnrolled === 0 ? (
+              ) : enrolledCourses.length === 0 ? (
                 <>
                   <span className="recommendation-icon">🎯</span>
                   <div>

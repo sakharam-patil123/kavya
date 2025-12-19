@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Star, Clock, ChevronRight, Users } from "lucide-react";
 import "../assets/Subscription.css";
 import AppLayout from "../components/AppLayout";
 import { useNavigate } from "react-router-dom"; // <-- Added
 
-// Courses Data
-const courses = [
+// Static demo courses as fallback
+const staticCourses = [
   {
     id: 1,
     title: "Complete Ethical Hacking Course",
@@ -373,6 +373,73 @@ function CourseCard({ course, onEnroll }) {
 
 // CourseListing Component
 function CourseListing({ onCourseSelect }) {
+  const [courses, setCourses] = useState(staticCourses);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch real courses from backend
+    (async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('/api/courses', {
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          }
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data.courses && data.courses.length > 0) {
+            // Map backend courses to frontend format
+            const mappedCourses = data.courses.map(course => ({
+              id: course._id, // Use MongoDB _id
+              title: course.title,
+              language: course.language || 'English',
+              image: course.thumbnail || 'default',
+              students: `${course.enrolledStudents?.length || 0} students`,
+              rating: course.rating || 4.5,
+              reviews: course.reviews || 0,
+              isPremium: course.isPremium !== false,
+              tutor: course.instructor?.fullName || 'KavyaLearn',
+              sellingStatus: course.isPublished ? 'Course Selling' : 'Coming Soon',
+              totalStudents: `${course.enrolledStudents?.length || 0} students`,
+              overview: course.description?.substring(0, 100) || 'Learn from experts',
+              description: course.description || 'No description available',
+              additionalInfo: 'Enroll now and get started!',
+              sections: [],
+              ratings: {
+                overall: course.rating || 4.5,
+                breakdown: []
+              },
+              faqs: []
+            }));
+            console.log('✅ Loaded', mappedCourses.length, 'courses from backend');
+            setCourses(mappedCourses);
+          } else {
+            console.warn('⚠️ No courses from backend, using static courses');
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to fetch backend courses, using static:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="course-listing">
+        <div className="course-listing-container">
+          <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+            <p>Loading courses...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="course-listing">
       <div className="course-listing-container">

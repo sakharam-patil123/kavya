@@ -60,7 +60,7 @@ export default function Profile() {
   const isStudent = userRole === 'student';
 
   useEffect(() => {
-    (async () => {
+    const loadProfileData = async () => {
       try {
         // Get role from localStorage or API
         const storedRole = localStorage.getItem('userRole');
@@ -113,6 +113,8 @@ export default function Profile() {
           const progress = await api.getProgressOverview();
 
           if (progress && progress.stats) {
+            console.log('📚 Profile: Courses Enrolled =', progress.stats.enrolledCourses ?? 0);
+            console.log('⏰ Profile: Hours Learned =', progress.stats.learningHours ?? 0);
             setProfile((prev) => ({
               ...prev,
               stats: {
@@ -149,7 +151,29 @@ export default function Profile() {
         // ignore if unauthenticated — log for visibility
         console.warn('Could not load profile or user not authenticated', err?.message || err);
       }
-    })();
+    };
+
+    loadProfileData();
+
+    // Re-fetch data when window regains focus (e.g., after enrolling in another tab)
+    const handleFocus = () => {
+      console.log('🔄 Profile: Window focused, reloading data...');
+      loadProfileData();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    // Re-fetch data when enrollment happens (custom event)
+    const handleEnrollmentUpdate = () => {
+      console.log('🔄 Profile: Enrollment updated! Reloading data...');
+      loadProfileData();
+    };
+    window.addEventListener('enrollmentUpdated', handleEnrollmentUpdate);
+    console.log('✅ Profile: Event listeners registered');
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('enrollmentUpdated', handleEnrollmentUpdate);
+    };
   }, []);
   
 
