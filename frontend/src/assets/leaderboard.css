@@ -384,7 +384,7 @@
 }
 
 .trend-up {
-  color: #10b981;
+  color: #0284c7;
 }
 
 .trend-down {
@@ -523,26 +523,26 @@
 }
 
 .motivation-card {
-  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
   text-align: center;
   padding: 1.5rem;
 }
 
 .motivation-icon {
-  color: #10b981;
+  color: #0284c7;
   margin: 0 auto 1rem auto;
 }
 
 .motivation-title {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #065f46;
+  color: #2a89c0;
   margin: 0 0 0.75rem 0;
 }
 
 .motivation-text {
   font-size: 0.95rem;
-  color: #047857;
+  color: hwb(190 88% 9%) !important;
   margin: 0;
   line-height: 1.5;
 }
@@ -1215,7 +1215,7 @@
 }
 
 .trend-up {
-  color: #10b981;
+  color: #0284c7;
 }
 
 .trend-down {
@@ -1354,26 +1354,26 @@
 }
 
 .motivation-card {
-  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
   text-align: center;
   padding: 1.5rem;
 }
 
 .motivation-icon {
-  color: #10b981;
+  color: #0284c7;
   margin: 0 auto 1rem auto;
 }
 
 .motivation-title {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #065f46;
+  color: #0c4a6e;
   margin: 0 0 0.75rem 0;
 }
 
 .motivation-text {
   font-size: 0.95rem;
-  color: #047857;
+  color: #164e63;
   margin: 0;
   line-height: 1.5;
 }

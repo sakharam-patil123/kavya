@@ -53,6 +53,12 @@ export default function Leaderboard() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [myRank, setMyRank] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [weeklyChallenges, setWeeklyChallenges] = useState({
+    coursesCompleted: 0,
+    coursesTarget: 5,
+    hoursStudied: 0,
+    hoursTarget: 10
+  });
 
   useEffect(() => {
     async function loadLeaderboard() {
@@ -82,7 +88,48 @@ export default function Leaderboard() {
       }
       setLoading(false);
     }
+    
+    async function loadStudentProgress() {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        const res = await fetch('/api/student/dashboard', {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const student = data.data || data;
+          
+          // Calculate courses completed this week
+          const oneWeekAgo = new Date();
+          oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+          
+          const coursesCompleted = (student.enrolledCourses || []).filter(
+            ec => ec.completed && new Date(ec.completionDate) >= oneWeekAgo
+          ).length;
+          
+          // Calculate hours studied (use totalHoursLearned or estimate from progress)
+          const hoursStudied = Math.floor((student.totalHoursLearned || 0) % 10);
+          
+          setWeeklyChallenges({
+            coursesCompleted,
+            coursesTarget: 5,
+            hoursStudied,
+            hoursTarget: 10
+          });
+        }
+      } catch (err) {
+        console.error('Error loading student progress', err);
+      }
+    }
+    
     loadLeaderboard();
+    loadStudentProgress();
   }, []);
 
   const renderLeaderboardContent = () => {
@@ -348,28 +395,38 @@ export default function Leaderboard() {
 
               <div className="challenge-item">
                 <div className="challenge-label-row">
-                  <div>Complete 5 Courses</div>
-                  <div className="challenge-progress-value">3/5</div>
+                  <div>Complete {weeklyChallenges.coursesTarget} Courses</div>
+                  <div className="challenge-progress-value">
+                    {weeklyChallenges.coursesCompleted}/{weeklyChallenges.coursesTarget}
+                  </div>
                 </div>
 
                 <div className="challenge-progress-bar">
                   <div
                     className="challenge-progress-fill"
-                    style={{ width: "60%", backgroundColor: "#4ade80" }}
+                    style={{ 
+                      width: `${Math.min((weeklyChallenges.coursesCompleted / weeklyChallenges.coursesTarget) * 100, 100)}%`, 
+                      backgroundColor: "#4ade80" 
+                    }}
                   ></div>
                 </div>
               </div>
 
               <div className="challenge-item">
                 <div className="challenge-label-row">
-                  <div>Study 10 Hours</div>
-                  <div className="challenge-progress-value">7/10</div>
+                  <div>Study {weeklyChallenges.hoursTarget} Hours</div>
+                  <div className="challenge-progress-value">
+                    {weeklyChallenges.hoursStudied}/{weeklyChallenges.hoursTarget}
+                  </div>
                 </div>
 
                 <div className="challenge-progress-bar">
                   <div
                     className="challenge-progress-fill"
-                    style={{ width: "70%", backgroundColor: "#3b82f6" }}
+                    style={{ 
+                      width: `${Math.min((weeklyChallenges.hoursStudied / weeklyChallenges.hoursTarget) * 100, 100)}%`, 
+                      backgroundColor: "#3b82f6" 
+                    }}
                   ></div>
                 </div>
               </div>
