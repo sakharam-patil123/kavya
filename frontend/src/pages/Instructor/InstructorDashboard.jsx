@@ -67,13 +67,13 @@ const InstructorDashboard = () => {
     <AppLayout showGreeting={false}>
       <div className="instructor-dashboard">
         <div className="dashboard-header">
-          <button 
+          {/* <button 
             className="back-button" 
             onClick={() => navigate('/dashboard')}
             title="Go back"
           >
             <FiArrowLeft /> Back
-          </button>
+          </button> */}
           <h1>Instructor Dashboard</h1>
         </div>
 
@@ -107,7 +107,7 @@ const InstructorDashboard = () => {
             <div className="stat-icon">📊</div>
             <div className="stat-content">
               <h3>{stats.averageStudentProgress}%</h3>
-              <p>Avg Student Progress</p>
+              <p>Progress</p>
             </div>
           </div>
         </div>

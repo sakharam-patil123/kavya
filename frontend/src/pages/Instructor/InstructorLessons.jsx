@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import AppLayout from '../../components/AppLayout';
 import { FiArrowLeft } from 'react-icons/fi';
@@ -7,6 +7,7 @@ import './InstructorLessons.css';
 
 const InstructorLessons = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -22,18 +23,60 @@ const InstructorLessons = () => {
   });
 
   useEffect(() => {
+    // Load initial data and respect optional ?courseId query param or location state
+    const params = new URLSearchParams(location.search);
+    const initialCourse = params.get('courseId') || location.state?.courseId;
+    if (initialCourse) setSelectedCourse(initialCourse);
     loadCoursesAndLessons();
   }, []);
+
+  // When course filter changes, fetch lessons for that course only
+  useEffect(() => {
+    const fetchForCourse = async () => {
+      try {
+        setLoading(true);
+        if (!selectedCourse) {
+          // reload aggregated lessons for all courses
+          await loadCoursesAndLessons();
+          return;
+        }
+        const res = await axiosClient.get(`/api/instructor/courses/${selectedCourse}/lessons`);
+        // attach courseId for consistency with aggregated results
+        const courseLessons = (res.data.data || []).map(l => ({ ...l, courseId: selectedCourse }));
+        setLessons(courseLessons);
+      } catch (error) {
+        console.error('Failed to load lessons for course:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchForCourse();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCourse]);
 
   const loadCoursesAndLessons = async () => {
     try {
       const [coursesRes, lessonsRes] = await Promise.all([
         axiosClient.get('/api/instructor/courses'),
-        axiosClient.get('/api/instructor/lessons')
+        // backend exposes lessons per course; aggregate for all courses
+        // we'll fetch lessons per course after we have the courses list
       ]);
 
       setCourses(coursesRes.data.data || []);
-      setLessons(lessonsRes.data.data || []);
+      const coursesList = coursesRes.data.data || [];
+
+      // fetch lessons per course and combine
+      const lessonsPromises = coursesList.map(c =>
+        axiosClient.get(`/api/instructor/courses/${c._id}/lessons`).then(r => r.data.data || []).catch(() => [])
+      );
+      const lessonsResults = await Promise.all(lessonsPromises);
+      // lessonsResults is an array of lesson arrays per course. Attach courseId to each lesson
+      const aggregated = lessonsResults.flatMap((arr, idx) => {
+        const courseId = coursesList[idx]._id;
+        return (arr || []).map(lesson => ({ ...lesson, courseId }));
+      });
+      setLessons(aggregated);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -52,18 +95,31 @@ const InstructorLessons = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Ensure a course is selected before creating a lesson
+      if (!selectedCourse) {
+        alert('Please select a course before creating a lesson.');
+        return;
+      }
+
       if (editingLesson) {
+        // update existing lesson - course change not allowed here
         await axiosClient.put(`/api/instructor/lessons/${editingLesson._id}`, {
-          ...formData,
-          courseId: selectedCourse
+          ...formData
         });
       } else {
-        await axiosClient.post('/api/instructor/lessons', {
+        // create under selected course
+        // compute a client-side fallback order (max existing order + 1) to avoid server validation errors
+        const courseLessons = lessons.filter(l => l.courseId === selectedCourse);
+        const maxOrder = courseLessons.length ? Math.max(...courseLessons.map(l => Number(l.order || 0))) : 0;
+        const nextOrder = maxOrder + 1;
+
+        await axiosClient.post(`/api/instructor/courses/${selectedCourse}/lessons`, {
           ...formData,
-          courseId: selectedCourse
+          order: nextOrder
         });
       }
-      loadCoursesAndLessons();
+      // Reload and only show success after reload completes
+      await loadCoursesAndLessons();
       setShowForm(false);
       setFormData({
         title: '',
@@ -74,6 +130,7 @@ const InstructorLessons = () => {
       });
       setEditingLesson(null);
     } catch (error) {
+      console.error('Error saving lesson:', error);
       alert('Error saving lesson: ' + (error.response?.data?.message || error.message));
     }
   };

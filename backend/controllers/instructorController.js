@@ -196,22 +196,58 @@ exports.createLesson = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
+    // Ensure numeric duration (accept '45' or '45 min') and set default order if not provided
+    let durationNum = 0;
+    if (duration !== undefined && duration !== null && String(duration).trim() !== '') {
+      const parsed = Number(duration);
+      if (Number.isFinite(parsed)) durationNum = parsed; else {
+        const match = String(duration).match(/(\d+(?:\.\d+)?)/);
+        durationNum = match ? Number(match[1]) : 0;
+      }
+    }
+    let assignedOrder = order;
+
+    // Treat empty string as missing
+    if (assignedOrder === undefined || assignedOrder === null || assignedOrder === '') {
+      const last = await Lesson.findOne({ course: req.params.courseId }).sort('-order');
+      assignedOrder = last && last.order != null ? last.order + 1 : 1;
+    }
+    // Coerce to a safe integer and fallback to last+1 if invalid
+    assignedOrder = Math.floor(Number(assignedOrder));
+    if (!Number.isFinite(assignedOrder) || Number.isNaN(assignedOrder)) {
+      const last = await Lesson.findOne({ course: req.params.courseId }).sort('-order');
+      assignedOrder = last && last.order != null && Number.isFinite(Number(last.order)) ? Math.floor(Number(last.order)) + 1 : 1;
+    }
+
+    // Normalize resources: if a string provided, convert to a simple array
+    let resourcesArr = Array.isArray(resources) ? resources : [];
+    if (typeof resources === 'string' && resources.trim()) {
+      resourcesArr = [{ fileUrl: resources.trim() }];
+    }
+
+    // Create lesson and ensure atomicity: if adding to course fails, remove lesson
     const lesson = await Lesson.create({
       title,
       description,
       content,
       videoUrl,
-      duration,
-      resources,
+      duration: durationNum,
+      resources: resourcesArr,
       quiz,
-      order,
+      order: assignedOrder,
       course: req.params.courseId,
       isPublished: false
     });
 
-    // Add lesson to course
-    course.lessons.push(lesson._id);
-    await course.save();
+    // Add lesson to course (guarded)
+    try {
+      course.lessons.push(lesson._id);
+      await course.save();
+    } catch (err) {
+      // rollback lesson if we couldn't attach it
+      await Lesson.findByIdAndDelete(lesson._id).catch(() => {});
+      return res.status(500).json({ success: false, message: 'Failed to attach lesson to course' });
+    }
 
     const populatedLesson = await lesson.populate('quiz');
 
@@ -243,16 +279,23 @@ exports.updateLesson = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    lesson = await Lesson.findByIdAndUpdate(req.params.id, req.body, {
+    // Build update fields and coerce numeric types
+    const { title, description, content, videoUrl, duration, resources, quiz, order } = req.body;
+    const updateFields = { title, description, content, videoUrl, resources, quiz };
+    if (duration !== undefined && duration !== null && String(duration).trim() !== '') {
+      const d = Number(duration);
+      updateFields.duration = Number.isFinite(d) ? d : 0;
+    }
+    if (order !== undefined && order !== null && String(order).trim() !== '') {
+      const o = Number(order);
+      if (!Number.isFinite(o)) return res.status(400).json({ success: false, message: 'Invalid order value' });
+      updateFields.order = o;
+    }
+
+    lesson = await Lesson.findByIdAndUpdate(req.params.id, updateFields, {
       new: true,
       runValidators: true
     }).populate('quiz');
-
-    res.json({
-      success: true,
-      message: 'Lesson updated successfully',
-      data: lesson
-    });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -270,12 +313,6 @@ exports.deleteLesson = async (req, res) => {
     }
 
     const course = await Course.findById(lesson.course);
-
-    // Verify instructor
-    if (course.instructor.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Not authorized' });
-    }
-
     // Remove from course
     course.lessons = course.lessons.filter(l => l.toString() !== req.params.id);
     await course.save();
@@ -301,14 +338,7 @@ exports.getInstructorStudents = async (req, res) => {
   try {
     // Get all courses by this instructor
     const courses = await Course.find({ instructor: req.user._id })
-      .populate({
-        path: 'enrolledStudents',
-        select: 'fullName email phone status enrolledCourses achievements totalHoursLearned streakDays',
-        populate: {
-          path: 'enrolledCourses.course',
-          select: 'title'
-        }
-      });
+      .populate('enrolledStudents', 'fullName email');
 
     // Extract unique students
     const studentSet = new Set();

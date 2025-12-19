@@ -19,19 +19,46 @@ exports.createLesson = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to add lessons to this course' });
         }
 
+        // Ensure numeric duration (accept '45' or '45 min') and compute order if missing
+        let durationNum = 0;
+        if (duration !== undefined && duration !== null && String(duration).trim() !== '') {
+            const parsed = Number(duration);
+            if (Number.isFinite(parsed)) durationNum = parsed; else {
+                const match = String(duration).match(/(\d+(?:\.\d+)?)/);
+                durationNum = match ? Number(match[1]) : 0;
+            }
+        }
+        let assignedOrder;
+        if (order !== undefined && order !== null && String(order).trim() !== '') {
+            const o = Number(order);
+            assignedOrder = Number.isFinite(o) ? o : null;
+        }
+        if (assignedOrder == null) {
+            const last = await Lesson.findOne({ course: courseId }).sort('-order');
+            assignedOrder = last && last.order != null && Number.isFinite(Number(last.order)) ? Math.floor(Number(last.order)) + 1 : 1;
+        }
+        // Ensure integer
+        assignedOrder = Math.floor(Number(assignedOrder));
+        if (!Number.isFinite(assignedOrder) || Number.isNaN(assignedOrder)) assignedOrder = 1;
+
         const lesson = await Lesson.create({
             course: courseId,
             title,
             description,
             videoUrl,
             content,
-            duration,
-            order: order || 0
+            duration: durationNum,
+            order: assignedOrder
         });
 
-        // Add lesson to course
-        course.lessons.push(lesson._id);
-        await course.save();
+        // Add lesson to course (rollback if attach fails)
+        try {
+            course.lessons.push(lesson._id);
+            await course.save();
+        } catch (err) {
+            await Lesson.findByIdAndDelete(lesson._id).catch(() => {});
+            return res.status(500).json({ message: 'Failed to attach lesson to course' });
+        }
 
         res.status(201).json(lesson);
     } catch (error) {

@@ -92,7 +92,8 @@ const InstructorCourses = () => {
   };
 
   const handleManageLessons = (courseId) => {
-    navigate(`/instructor/courses/${courseId}/lessons`);
+    // Redirect to the centralized Manage Lessons page and pre-select this course
+    navigate(`/instructor/lessons?courseId=${courseId}`);
   };
 
   if (loading) {
