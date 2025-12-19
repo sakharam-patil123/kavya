@@ -103,7 +103,9 @@ const AdminStudents = () => {
                 Phone: {s.phone || "-"} <br />
                 Gender: {s.gender || "Not set"} <br />
                 Age: {s.age || "Not set"} <br />
-                Address: {s.address || "Not available"} <br />
+                Address: {s.address && typeof s.address === 'object' 
+                  ? `${s.address.street || ''}, ${s.address.city || ''}, ${s.address.state || ''} ${s.address.zipCode || ''}`.trim() || "Not available"
+                  : s.address || "Not available"} <br />
                 Status:{" "}
                 <span
                   className={`badge bg-${

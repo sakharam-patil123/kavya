@@ -39,8 +39,8 @@ function Sidebar({ isOpen, setIsOpen }) {
   }, [setIsOpen]);
 
   const navItems = [
-    // Show Dashboard and Courses only for non-instructor users
-    ...(userRole !== 'instructor' ? [
+    // Show Dashboard and Courses only for student users (not instructor, admin, or parent)
+    ...(userRole !== 'instructor' && userRole !== 'admin' && userRole !== 'sub-admin' && userRole !== 'parent' ? [
       { path: "/dashboard", label: "Dashboard", icon: <FiHome /> },
       { path: "/courses", label: "Courses", icon: <FiBookOpen /> },
     ] : []),
@@ -63,17 +63,23 @@ function Sidebar({ isOpen, setIsOpen }) {
       { path: "/instructor/analytics", label: "Analytics", icon: <TbReportAnalytics /> },
     ] : []),
     
-    // Subscriptions, Schedule, Leaderboard, Profile - shown to all users
-    {
-      path: "/subscription",
-      label: "Subscriptions",
-      icon: <LuGalleryHorizontalEnd />,
-    },
+    // Subscriptions and Leaderboard - shown only to student users
+    ...(userRole !== 'instructor' && userRole !== 'admin' && userRole !== 'sub-admin' && userRole !== 'parent' ? [
+      {
+        path: "/subscription",
+        label: "Subscriptions",
+        icon: <LuGalleryHorizontalEnd />,
+      },
+    ] : []),
     ...(userRole === 'parent' ? [
       { path: "/parent/student-report", label: "Student Reports", icon: <MdSchool /> }
     ] : []),
-    { path: "/schedule", label: "Schedule", icon: <LuCalendar /> },
-    { path: "/leaderboard", label: "Leaderboard", icon: <LuTrophy /> },
+    ...(userRole !== 'parent' ? [
+      { path: "/schedule", label: "Schedule", icon: <LuCalendar /> },
+    ] : []),
+    ...(userRole !== 'instructor' && userRole !== 'admin' && userRole !== 'sub-admin' && userRole !== 'parent' ? [
+      { path: "/leaderboard", label: "Leaderboard", icon: <LuTrophy /> },
+    ] : []),
     { path: "/profile", label: "Profile", icon: <LuUser /> },
   ];
 

@@ -41,14 +41,32 @@ const InstructorAnalytics = () => {
       const completedStudents = studentsData.filter(s => (s.averageProgress || 0) >= 100).length;
       const completionRate = totalStudents > 0 ? ((completedStudents / totalStudents) * 100).toFixed(2) : 0;
 
-      // Course metrics
-      const courseMetrics = coursesData.map(course => ({
-        id: course._id,
-        title: course.title,
-        enrollmentCount: studentsData.filter(s => s.enrolledCourses?.includes(course._id)).length,
-        averageProgress: (Math.random() * 100).toFixed(2), // Placeholder
-        lessonsCount: course.lessons?.length || 0
-      }));
+      // Course metrics - calculate real average progress per course
+      const courseMetrics = coursesData.map(course => {
+        const enrolledInCourse = studentsData.filter(s => 
+          s.enrolledCourses?.some(ec => ec.course?._id === course._id || ec.course === course._id)
+        );
+        const enrollmentCount = enrolledInCourse.length;
+        
+        // Calculate average progress from enrolled students' completion percentages
+        let totalProgress = 0;
+        enrolledInCourse.forEach(student => {
+          const enrollment = student.enrolledCourses?.find(ec => 
+            (ec.course?._id === course._id || ec.course === course._id)
+          );
+          totalProgress += (enrollment?.completionPercentage || 0);
+        });
+        
+        const averageProgress = enrollmentCount > 0 ? (totalProgress / enrollmentCount).toFixed(2) : 0;
+        
+        return {
+          id: course._id,
+          title: course.title,
+          enrollmentCount,
+          averageProgress,
+          lessonsCount: course.lessons?.length || 0
+        };
+      });
 
       setAnalytics({
         totalStudents,
@@ -145,7 +163,11 @@ const InstructorAnalytics = () => {
                         <div className="progress-bar-small">
                           <div
                             className="progress-fill-small"
-                            style={{ width: `${course.averageProgress}%` }}
+                            style={{ 
+                              width: `${course.averageProgress}%`,
+                              backgroundColor: '#3b82f6',
+                              transition: 'width 0.3s ease'
+                            }}
                           />
                         </div>
                       </td>

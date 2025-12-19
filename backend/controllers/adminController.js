@@ -77,6 +77,20 @@ exports.createCourse = async (req, res) => {
   try {
     const payload = req.body;
     payload.createdBy = req.user._id;
+    
+    // If no instructor provided, set the admin as instructor
+    if (!payload.instructor) {
+      payload.instructor = req.user._id;
+    }
+    
+    // Ensure price and duration have default values if not provided
+    if (payload.price === undefined || payload.price === null || payload.price === '') {
+      payload.price = 0;
+    }
+    if (!payload.duration) {
+      payload.duration = '0 weeks';
+    }
+    
     const course = await Course.create(payload);
     await ActivityLog.create({ action: 'create_course', performedBy: req.user._id, targetType: 'Course', targetId: course._id, details: payload });
     res.status(201).json(course);
