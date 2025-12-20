@@ -2784,12 +2784,7 @@ export default function Courses() {
         {/* View More Button - Only show if 2 or more courses are available */}
         {totalCoursesCount >= 2 && (
             <div className="mt-5 mb-5 d-flex justify-content-start">
-            <button
-              className="btn btn-learn d-flex align-items-center gap-2"
-              onClick={() => navigate("/subscription")}
-            >
-              {/* view more courses */}
-            </button>
+            
           </div>
         )}
       </div>
