@@ -18,8 +18,8 @@ const InstructorLessons = () => {
     title: '',
     description: '',
     content: '',
-    duration: '',
-    resources: ''
+    videoUrl: '',
+    duration: ''
   });
 
   useEffect(() => {
@@ -101,11 +101,48 @@ const InstructorLessons = () => {
         return;
       }
 
+      // Validate required fields
+      if (!formData.title || !formData.title.trim()) {
+        alert('Please enter a lesson title.');
+        return;
+      }
+      if (!formData.description || !formData.description.trim()) {
+        alert('Please enter a lesson description.');
+        return;
+      }
+      if (!formData.content || !formData.content.trim()) {
+        alert('Please enter lesson content.');
+        return;
+      }
+
+      // Parse duration - extract number from string like "45 min" or "45"
+      let durationNum = 0;
+      if (formData.duration && formData.duration.trim()) {
+        const match = formData.duration.match(/(\d+(?:\.\d+)?)/);
+        durationNum = match ? Number(match[1]) : 0;
+      }
+      if (durationNum <= 0) {
+        alert('Please enter a valid duration (e.g., "45" or "45 min").');
+        return;
+      }
+
+      // Prepare payload with proper types
+      const payload = {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        content: formData.content.trim(),
+        duration: durationNum
+      };
+
+      // Only add optional fields if they have values
+      if (formData.videoUrl && formData.videoUrl.trim()) {
+        payload.videoUrl = formData.videoUrl.trim();
+      }
+
       if (editingLesson) {
         // update existing lesson - course change not allowed here
-        await axiosClient.put(`/api/instructor/lessons/${editingLesson._id}`, {
-          ...formData
-        });
+        console.log('Updating lesson with payload:', payload);
+        await axiosClient.put(`/api/instructor/lessons/${editingLesson._id}`, payload);
       } else {
         // create under selected course
         // compute a client-side fallback order (max existing order + 1) to avoid server validation errors
@@ -113,10 +150,12 @@ const InstructorLessons = () => {
         const maxOrder = courseLessons.length ? Math.max(...courseLessons.map(l => Number(l.order || 0))) : 0;
         const nextOrder = maxOrder + 1;
 
-        await axiosClient.post(`/api/instructor/courses/${selectedCourse}/lessons`, {
-          ...formData,
+        const createPayload = {
+          ...payload,
           order: nextOrder
-        });
+        };
+        console.log('Creating lesson with payload:', JSON.stringify(createPayload, null, 2));
+        await axiosClient.post(`/api/instructor/courses/${selectedCourse}/lessons`, createPayload);
       }
       // Reload and only show success after reload completes
       await loadCoursesAndLessons();
@@ -125,25 +164,29 @@ const InstructorLessons = () => {
         title: '',
         description: '',
         content: '',
-        duration: '',
-        resources: ''
+        videoUrl: '',
+        duration: ''
       });
       setEditingLesson(null);
     } catch (error) {
       console.error('Error saving lesson:', error);
-      alert('Error saving lesson: ' + (error.response?.data?.message || error.message));
+      console.error('Response data:', error.response?.data);
+      console.error('Response status:', error.response?.status);
+      const errorMsg = error.response?.data?.message || error.message;
+      alert('Error saving lesson: ' + errorMsg);
     }
   };
 
   const handleEdit = (lesson) => {
     setEditingLesson(lesson);
     setSelectedCourse(lesson.courseId);
+    
     setFormData({
       title: lesson.title,
       description: lesson.description,
       content: lesson.content,
-      duration: lesson.duration,
-      resources: lesson.resources || ''
+      videoUrl: lesson.videoUrl || '',
+      duration: lesson.duration
     });
     setShowForm(true);
   };
@@ -201,8 +244,8 @@ const InstructorLessons = () => {
                 title: '',
                 description: '',
                 content: '',
-                duration: '',
-                resources: ''
+                videoUrl: '',
+                duration: ''
               });
               setShowForm(!showForm);
             }}
@@ -243,17 +286,17 @@ const InstructorLessons = () => {
               />
               <input
                 type="text"
-                name="duration"
-                placeholder="Duration (e.g., 45 min)"
-                value={formData.duration}
+                name="videoUrl"
+                placeholder="Video URL (optional)"
+                value={formData.videoUrl}
                 onChange={handleInputChange}
                 className="form-control"
               />
               <input
                 type="text"
-                name="resources"
-                placeholder="Resources (URLs, attachments)"
-                value={formData.resources}
+                name="duration"
+                placeholder="Duration (e.g., 45 min)"
+                value={formData.duration}
                 onChange={handleInputChange}
                 className="form-control"
               />

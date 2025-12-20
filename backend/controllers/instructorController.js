@@ -220,24 +220,31 @@ exports.createLesson = async (req, res) => {
     }
 
     // Normalize resources: if a string provided, convert to a simple array
-    let resourcesArr = Array.isArray(resources) ? resources : [];
-    if (typeof resources === 'string' && resources.trim()) {
+    let resourcesArr;
+    if (Array.isArray(resources) && resources.length > 0) {
+      resourcesArr = resources;
+    } else if (typeof resources === 'string' && resources.trim()) {
       resourcesArr = [{ fileUrl: resources.trim() }];
     }
 
-    // Create lesson and ensure atomicity: if adding to course fails, remove lesson
-    const lesson = await Lesson.create({
+    // Build lesson data object
+    const lessonData = {
       title,
       description,
       content,
-      videoUrl,
       duration: durationNum,
-      resources: resourcesArr,
-      quiz,
       order: assignedOrder,
       course: req.params.courseId,
       isPublished: false
-    });
+    };
+
+    // Only add optional fields if they exist
+    if (videoUrl) lessonData.videoUrl = videoUrl;
+    if (resourcesArr) lessonData.resources = resourcesArr;
+    if (quiz) lessonData.quiz = quiz;
+
+    // Create lesson and ensure atomicity: if adding to course fails, remove lesson
+    const lesson = await Lesson.create(lessonData);
 
     // Add lesson to course (guarded)
     try {
@@ -257,6 +264,8 @@ exports.createLesson = async (req, res) => {
       data: populatedLesson
     });
   } catch (error) {
+    console.error('❌ Error creating lesson:', error);
+    console.error('Request body:', req.body);
     res.status(400).json({ success: false, message: error.message });
   }
 };
