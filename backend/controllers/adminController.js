@@ -139,10 +139,50 @@ exports.updateCourse = async (req, res) => {
 
 exports.deleteCourse = async (req, res) => {
   try {
-    const course = await Course.findByIdAndDelete(req.params.id);
+    const courseId = req.params.id;
+    const course = await Course.findById(courseId);
     if (!course) return res.status(404).json({ message: 'Course not found' });
-    await ActivityLog.create({ action: 'delete_course', performedBy: req.user._id, targetType: 'Course', targetId: course._id });
-    res.json({ message: 'Course deleted' });
+
+    // Get all students enrolled in this course before deleting
+    const enrolledStudents = course.enrolledStudents || [];
+
+    // Delete all lessons associated with this course
+    const Lesson = require('../models/lessonModel');
+    await Lesson.deleteMany({ course: courseId });
+
+    // Delete all enrollments associated with this course
+    await Enrollment.deleteMany({ courseId: courseId });
+
+    // Delete all payments associated with this course
+    const Payment = require('../models/paymentModel');
+    await Payment.deleteMany({ courseId: courseId });
+
+    // Remove course from all students' enrolledCourses array
+    await User.updateMany(
+      { _id: { $in: enrolledStudents } },
+      { $pull: { enrolledCourses: { course: courseId } } }
+    );
+
+    // Delete the course itself
+    await Course.findByIdAndDelete(courseId);
+
+    // Log the activity
+    await ActivityLog.create({ 
+      action: 'delete_course', 
+      performedBy: req.user._id, 
+      targetType: 'Course', 
+      targetId: courseId,
+      details: { 
+        courseTitle: course.title,
+        enrolledStudentsCount: enrolledStudents.length
+      }
+    });
+
+    res.json({ 
+      message: 'Course deleted successfully along with all related data',
+      deletedCourseId: courseId,
+      affectedStudents: enrolledStudents.length
+    });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

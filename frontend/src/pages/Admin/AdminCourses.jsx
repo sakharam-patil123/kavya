@@ -7,6 +7,8 @@ const AdminCourses = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
 
   const loadCourses = async () => {
     try {
@@ -16,6 +18,37 @@ const AdminCourses = () => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteCourse = async (courseId, courseName) => {
+    // Show confirmation dialog
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete the course "${courseName}"?\n\nThis will remove the course from:\n- Admin Panel\n- All student enrollments\n- Subscription pages\n- Course listings\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmDelete) {
+      return;
+    }
+
+    setDeleting(courseId);
+    setDeleteError('');
+
+    try {
+      await axiosClient.delete(`/api/admin/courses/${courseId}`);
+      
+      // Remove course from local state
+      setCourses(courses.filter(c => c._id !== courseId));
+      
+      // Show success message
+      alert('Course deleted successfully!');
+    } catch (err) {
+      console.error('Error deleting course:', err);
+      const errorMessage = err.response?.data?.message || 'Failed to delete course. Please try again.';
+      setDeleteError(errorMessage);
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -76,6 +109,7 @@ const AdminCourses = () => {
             <th>Level</th>
             <th>Status</th>
             <th>Duration (hrs)</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -86,6 +120,25 @@ const AdminCourses = () => {
               <td>{c.level}</td>
               <td>{c.status}</td>
               <td>{c.durationHours}</td>
+              <td>
+                <button
+                  className="btn btn-danger"
+                  onClick={() => handleDeleteCourse(c._id, c.title)}
+                  disabled={deleting === c._id}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '14px',
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: deleting === c._id ? 'not-allowed' : 'pointer',
+                    opacity: deleting === c._id ? 0.6 : 1
+                  }}
+                >
+                  {deleting === c._id ? 'Deleting...' : 'Delete'}
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>

@@ -16,11 +16,13 @@ exports.getStudentDashboard = async (req, res) => {
       })
       .populate('achievements');
 
-    const enrolledCount = student.enrolledCourses.length;
-    const completedCount = student.enrolledCourses.filter(c => c.completionPercentage === 100).length;
+    // Filter out null course references (deleted courses)
+    const validEnrollments = student.enrolledCourses.filter(c => c.course !== null);
+    const enrolledCount = validEnrollments.length;
+    const completedCount = validEnrollments.filter(c => c.completionPercentage === 100).length;
     const inProgressCount = enrolledCount - completedCount;
     const averageProgress = enrolledCount 
-      ? Math.round(student.enrolledCourses.reduce((sum, c) => sum + c.completionPercentage, 0) / enrolledCount)
+      ? Math.round(validEnrollments.reduce((sum, c) => sum + c.completionPercentage, 0) / enrolledCount)
       : 0;
 
     res.json({
@@ -63,19 +65,22 @@ exports.getStudentCourses = async (req, res) => {
         }
       });
 
-    const courses = student.enrolledCourses.map(ec => ({
-      _id: ec.course._id,
-      title: ec.course.title,
-      thumbnail: ec.course.thumbnail,
-      instructor: ec.course.instructor,
-      level: ec.course.level,
-      completionPercentage: ec.completionPercentage,
-      hoursSpent: ec.hoursSpent,
-      completedLessons: ec.completedLessons.length,
-      totalLessons: ec.course.lessons.length,
-      enrollmentDate: ec.enrollmentDate,
-      certificateDownloadedAt: ec.certificateDownloadedAt
-    }));
+    // Filter out any null course references (courses that were deleted)
+    const courses = student.enrolledCourses
+      .filter(ec => ec.course !== null)
+      .map(ec => ({
+        _id: ec.course._id,
+        title: ec.course.title,
+        thumbnail: ec.course.thumbnail,
+        instructor: ec.course.instructor,
+        level: ec.course.level,
+        completionPercentage: ec.completionPercentage,
+        hoursSpent: ec.hoursSpent,
+        completedLessons: ec.completedLessons.length,
+        totalLessons: ec.course.lessons.length,
+        enrollmentDate: ec.enrollmentDate,
+        certificateDownloadedAt: ec.certificateDownloadedAt
+      }));
 
     res.json({
       success: true,
