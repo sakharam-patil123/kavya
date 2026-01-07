@@ -9,12 +9,41 @@ const CreateCourseModal = ({ isOpen, onClose, onSuccess }) => {
     level: 'Beginner', 
     duration: '', 
     price: 0,
-    status: 'active' 
+    status: 'active',
+    resourceUrl: '',
+    resourceName: ''
   });
+  const [uploading, setUploading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      alert('Only PDF files are allowed.');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const payload = new FormData();
+      payload.append('file', file);
+
+      const res = await axiosClient.post('/api/uploads', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      const url = res.data.url || res.data.secure_url;
+      setFormData(prev => ({ ...prev, resourceUrl: url, resourceName: file.name }));
+      setUploading(false);
+    } catch (err) {
+      setUploading(false);
+      alert('Upload failed: ' + (err.response?.data?.message || err.message));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -28,7 +57,9 @@ const CreateCourseModal = ({ isOpen, onClose, onSuccess }) => {
         level: 'Beginner', 
         duration: '', 
         price: 0,
-        status: 'active' 
+        status: 'active',
+        resourceUrl: '',
+        resourceName: ''
       });
       onSuccess();
       onClose();
@@ -56,6 +87,18 @@ const CreateCourseModal = ({ isOpen, onClose, onSuccess }) => {
         <option value="active">Active</option>
         <option value="archived">Archived</option>
       </select>
+
+      <div style={{ gridColumn: '1 / -1' }}>
+        <label style={{ display: 'block', marginBottom: 6 }}>Upload PDF resource (optional)</label>
+        <input type="file" accept="application/pdf" onChange={handleFileChange} className="form-control" />
+        {uploading && <div style={{ marginTop: 8 }}>Uploading...</div>}
+        {formData.resourceUrl && (
+          <div style={{ marginTop: 8 }}>
+            Uploaded: <a href={formData.resourceUrl} target="_blank" rel="noopener noreferrer">{formData.resourceName || 'View file'}</a>
+          </div>
+        )}
+      </div>
+
       <button type="submit" className="btn btn-primary" style={{ gridColumn: '1 / -1' }}>Create Course</button>
     </form>
   );
