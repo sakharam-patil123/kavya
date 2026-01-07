@@ -684,3 +684,28 @@ body {
     display: block !important;
   }
 }
+
+/* Dark-mode override: keep profile page text black */
+.dark .profile-page,
+.dark .profile-page h1,
+.dark .profile-page h2,
+.dark .profile-page h3,
+.dark .profile-page h4,
+.dark .profile-page h5,
+.dark .profile-page p,
+.dark .profile-page span,
+.dark .profile-page a,
+.dark .profile-page .contact-item,
+.dark .profile-page .stat-label,
+.dark .profile-page .activity-text,
+.dark .profile-page .cert-info p,
+.dark .profile-page .pref-row,
+.dark .profile-page .profile-bio {
+  color: #000 !important;
+}
+
+/* Ensure form inputs and placeholders remain readable */
+.dark .profile-page .edit-form input,
+.dark .profile-page .edit-form textarea {
+  color: #000 !important;
+}

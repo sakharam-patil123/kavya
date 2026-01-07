@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axiosClient from '../../api/axiosClient';
 import AppLayout from '../../components/AppLayout';
+import '../../assets/admin-dark-mode.css';
 
 const AdminSettings = () => {
   const [claudeEnabled, setClaudeEnabled] = useState(false);
@@ -35,7 +36,7 @@ const AdminSettings = () => {
 
   return (
     <AppLayout showGreeting={false}>
-      <h2>Admin Settings</h2>
+      <h2 className="admin-heading">Admin Settings</h2>
       <div className="card p-4">
         <h5>AI Model Configuration</h5>
         <div className="form-check form-switch">

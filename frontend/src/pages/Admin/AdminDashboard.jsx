@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 import AppLayout from '../../components/AppLayout';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import '../../assets/admin-dark-mode.css';
 
 const AdminDashboard = () => {
   const [summary, setSummary] = useState(null);
@@ -30,7 +31,7 @@ const AdminDashboard = () => {
 
   return (
     <AppLayout showGreeting={false}>
-      <h2>Admin Dashboard</h2>
+      <h2 className="admin-heading">Admin Dashboard</h2>
       <div className="cards" style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
         <div className="card p-3">Total Students: {summary.totalStudents}</div>
         <div className="card p-3">Total Courses: {summary.totalCourses}</div>

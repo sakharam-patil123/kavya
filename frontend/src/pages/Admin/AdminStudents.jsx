@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import axiosClient from "../../api/axiosClient";
 import AppLayout from "../../components/AppLayout";
 import CreateUserModal from "../../components/CreateUserModal";
+import "../../assets/admin-dark-mode.css";
 
 
 
@@ -31,6 +32,7 @@ const AdminStudents = () => {
 
   return (
     <AppLayout showGreeting={false}>
+      <div className="admin-students-page">
       {/* FORM SECTION */}
       {showForm && (
         <div style={{
@@ -75,7 +77,7 @@ const AdminStudents = () => {
           marginBottom: 20,
         }}
       >
-        <h2>Student Management</h2>
+        <h2 className="admin-heading">Student Management</h2>
         <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
           {showForm ? "Hide Form" : "Add Student"}
         </button>
@@ -189,6 +191,7 @@ const AdminStudents = () => {
           ))}
         </tbody>
       </table>
+      </div>
     </AppLayout>
   );
 };
