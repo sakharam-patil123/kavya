@@ -798,6 +798,47 @@
     width: 72px;
   }
 }
+
+  /* Dark-mode override: keep leaderboard text black and make filter tabs white */
+  .dark .leaderboard-container,
+  .dark .leaderboard-container h1,
+  .dark .leaderboard-container h2,
+  .dark .leaderboard-container h3,
+  .dark .leaderboard-container h4,
+  .dark .leaderboard-container h5,
+  .dark .leaderboard-container p,
+  .dark .leaderboard-container span,
+  .dark .leaderboard-container a,
+  .dark .leaderboard-container .section-title,
+  .dark .leaderboard-container .podium-name,
+  .dark .leaderboard-container .podium-points,
+  .dark .leaderboard-container .ranking-name,
+  .dark .leaderboard-container .ranking-stats,
+  .dark .leaderboard-container .ranking-points,
+  .dark .leaderboard-container .challenge-label,
+  .dark .leaderboard-container .challenge-progress-value,
+  .dark .leaderboard-container .motivation-text,
+  .dark .leaderboard-container .header-subtitle {
+    color: #000 !important;
+  }
+
+  /* Tabs: force white background and black text in dark mode */
+  .dark .leaderboard-container .filter-tabs .tab {
+    background: #ffffff !important;
+    color: #000 !important;
+    border: none !important;
+  }
+
+  .dark .leaderboard-container .filter-tabs .tab-active {
+    background: #ffffff !important;
+    color: #000 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
+  }
+
+  .dark .leaderboard-container .filter-tabs .tab:hover {
+    background: #ffffff !important;
+    color: #000 !important;
+  }
 @media (max-width: 480px) {
   .podium-item {
     min-width: 100px;

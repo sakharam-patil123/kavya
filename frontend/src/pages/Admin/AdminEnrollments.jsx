@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axiosClient from "../../api/axiosClient";
 import AppLayout from "../../components/AppLayout";
+import "../../assets/admin-dark-mode.css";
 
 const AdminEnrollments = () => {
   const [enrollments, setEnrollments] = useState([]);

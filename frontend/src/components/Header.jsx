@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { IoLogOutOutline, IoPersonOutline } from "react-icons/io5";
+import { FiMoon, FiSun } from "react-icons/fi";
 import notification from "../assets/notification.png";
 import profile from "../assets/profile.png";
 import avatarFemale from "../assets/avatar-female.svg";
@@ -16,6 +17,16 @@ function Header({ onToggleSidebar, children }) {
   const [userGender, setUserGender] = useState("");
   const [userAvatar, setUserAvatar] = useState("");
   const [userInitials, setUserInitials] = useState("");
+
+  // Theme state ('light' | 'dark') persisted in localStorage
+  const [theme, setTheme] = useState(() => {
+    try {
+      const t = localStorage.getItem('theme');
+      if (t) return t;
+    } catch (e) {}
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+    return 'light';
+  });
  
   // Notifications fetched from API
   const [notifications, setNotifications] = useState([]);
@@ -192,6 +203,35 @@ function Header({ onToggleSidebar, children }) {
     });
   };
 
+  const toggleTheme = () => {
+    try {
+      const next = theme === 'dark' ? 'light' : 'dark';
+      setTheme(next);
+      if (next === 'dark') document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', next);
+    } catch (e) {
+      console.error('Theme toggle error', e);
+    }
+  };
+
+  // Ensure theme is applied and persisted; respond to external changes
+  useEffect(() => {
+    try {
+      if (theme === 'dark') document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', theme);
+    } catch (e) {
+      console.error('Theme apply error', e);
+    }
+
+    const handleStorage = (e) => {
+      if (e.key === 'theme' && e.newValue) setTheme(e.newValue);
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [theme]);
+
   const goToProfile = () => {
     // Close dropdown and navigate to profile page
     setShowDropdown(false);
@@ -208,6 +248,38 @@ function Header({ onToggleSidebar, children }) {
       </div>
  
       <div className="header-right" style={{ position: "relative" }}>
+        {/* Theme toggle (placed before notifications) */}
+        <div style={{ display: 'inline-block', marginRight: '12px' }}>
+          <button
+            onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="header-theme-toggle"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text)',
+              padding: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '20px',
+              transition: 'opacity 0.2s ease, transform 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.opacity = '0.7';
+              e.currentTarget.style.transform = 'scale(1.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.opacity = '1';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+          >
+            {theme === 'dark' ? <FiSun size={22} /> : <FiMoon size={22} />}
+          </button>
+        </div>
+
         {/* Notification Icon */}
         <div ref={notificationRef} style={{ display: "inline-block", position: "relative", marginRight: "15px" }}>
           <div style={{ position: "relative", display: "inline-block" }}>
@@ -244,36 +316,36 @@ function Header({ onToggleSidebar, children }) {
           {showNotifications && (
             <div
               style={{
-                position: "absolute",
-                top: "50px",
-                right: "0",
-                backgroundColor: "#fff",
-                border: "1px solid #ddd",
-                borderRadius: "8px",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                width: "350px",
-                maxHeight: "400px",
-                overflowY: "auto",
-                zIndex: 100,
-              }}
+                  position: "absolute",
+                  top: "50px",
+                  right: "0",
+                  backgroundColor: "var(--card)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "8px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  width: "350px",
+                  maxHeight: "400px",
+                  overflowY: "auto",
+                  zIndex: 100,
+                }}
             >
               {/* Header */}
               <div style={{
                 padding: "15px 20px",
-                borderBottom: "1px solid #e5e5e5",
+                borderBottom: "1px solid var(--border)",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 position: "sticky",
                 top: 0,
-                backgroundColor: "#fff",
+                backgroundColor: "var(--header-bg)",
                 zIndex: 1
               }}>
-                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "600", color: "#1A365D" }}>
+                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "600", color: "var(--text)" }}>
                   Notifications
                 </h3>
                 {unreadCount > 0 && (
-                  <span style={{ fontSize: "12px", color: "#2B6CB0", fontWeight: "500" }}>
+                  <span style={{ fontSize: "12px", color: "var(--primary)", fontWeight: "500" }}>
                     {unreadCount} new
                   </span>
                 )}
@@ -290,22 +362,22 @@ function Header({ onToggleSidebar, children }) {
                     onKeyPress={(e) => { if (e.key === 'Enter' || e.key === ' ') handleNotificationClick(notif); }}
                     style={{
                       padding: "15px 20px",
-                      borderBottom: "1px solid #f0f0f0",
+                      borderBottom: "1px solid var(--border)",
                       cursor: "pointer",
-                      backgroundColor: notif.unread ? "#F0F9FF" : "white",
+                      backgroundColor: notif.unread ? "rgba(58,124,255,0.08)" : "var(--card)",
                       transition: "background-color 0.2s",
                       outline: 'none'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#F0F9FF"}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = notif.unread ? "#F0F9FF" : "white"}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(58,124,255,0.08)"}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = notif.unread ? "rgba(58,124,255,0.08)" : "var(--card)"}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-                      {notif.unread && (
+                        {notif.unread && (
                         <div style={{
                           width: "8px",
                           height: "8px",
                           borderRadius: "50%",
-                          backgroundColor: "#2B6CB0",
+                          backgroundColor: "var(--primary)",
                           marginTop: "6px",
                           flexShrink: 0
                         }}></div>
@@ -315,19 +387,19 @@ function Header({ onToggleSidebar, children }) {
                           margin: "0 0 5px 0",
                           fontSize: "14px",
                           fontWeight: notif.unread ? "600" : "500",
-                          color: "#1A365D"
+                          color: "var(--text)"
                         }}>
                           {notif.title}
                         </h4>
                         <p style={{
                           margin: "0 0 5px 0",
                           fontSize: "13px",
-                          color: "#4A5568",
+                          color: "var(--muted)",
                           lineHeight: "1.4"
                         }}>
                           {notif.message}
                         </p>
-                        <span style={{ fontSize: "12px", color: "#718096" }}>
+                        <span style={{ fontSize: "12px", color: "var(--muted)" }}>
                           {notif.time}
                         </span>
                       </div>
@@ -335,7 +407,7 @@ function Header({ onToggleSidebar, children }) {
                   </div>
                 ))
               ) : (
-                <div style={{ padding: "20px", textAlign: "center", color: "#718096" }}>
+                <div style={{ padding: "20px", textAlign: "center", color: "var(--muted)" }}>
                   No notifications
                 </div>
               )}
@@ -363,22 +435,22 @@ function Header({ onToggleSidebar, children }) {
           >
             <div role="dialog" aria-modal="true" aria-label="Notification details" onClick={(e) => e.stopPropagation()} style={{
               width: '420px',
-              background: '#fff',
+              background: 'var(--card)',
               borderRadius: '10px',
               boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
               padding: '20px'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
-                <h3 style={{ margin: 0, fontSize: '18px', color: '#0B2545' }}>{selectedNotification.title}</h3>
-                <span style={{ fontSize: '12px', color: '#718096' }}>{selectedNotification.time}</span>
+                <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--text)' }}>{selectedNotification.title}</h3>
+                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{selectedNotification.time}</span>
               </div>
-              <p style={{ marginTop: '12px', color: '#4A5568', lineHeight: 1.5 }}>{selectedNotification.message}</p>
+              <p style={{ marginTop: '12px', color: 'var(--muted)', lineHeight: 1.5 }}>{selectedNotification.message}</p>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
-                <button onClick={() => handleDeleteNotification(selectedNotification._id)} style={{ padding: '8px 12px', background: '#EF4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                <button onClick={() => handleDeleteNotification(selectedNotification._id)} style={{ padding: '8px 12px', background: 'var(--danger)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
                   Delete
                 </button>
-                <button onClick={() => { setShowNotificationDetail(false); setSelectedNotification(null); }} style={{ padding: '8px 12px', background: '#E2E8F0', color: '#1A365D', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                <button onClick={() => { setShowNotificationDetail(false); setSelectedNotification(null); }} style={{ padding: '8px 12px', background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '6px', cursor: 'pointer' }}>
                   Close
                 </button>
               </div>
@@ -446,8 +518,8 @@ function Header({ onToggleSidebar, children }) {
                 position: "absolute",
                 top: "50px",
                 right: "0",
-                backgroundColor: "#fff",
-                border: "1px solid #ddd",
+                backgroundColor: "var(--card)",
+                border: "1px solid var(--border)",
                 borderRadius: "8px",
                 boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                 padding: "10px 0",
@@ -465,9 +537,9 @@ function Header({ onToggleSidebar, children }) {
                   width: "100%",
                   padding: "12px 20px",
                   background: "transparent",
-                  color: "#1A365D",
+                  color: "var(--text)",
                   border: "none",
-                  borderBottom: "1px solid #e2e8f0",
+                  borderBottom: "1px solid var(--border)",
                   cursor: "pointer",
                   textAlign: "left",
                   fontSize: "14px",
@@ -478,7 +550,7 @@ function Header({ onToggleSidebar, children }) {
                   gap: "10px",
                   transition: "background-color 0.2s",
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#f5f5f5"}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--bg)"}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
               >
                 <IoPersonOutline size={18} />
@@ -492,7 +564,7 @@ function Header({ onToggleSidebar, children }) {
                   width: "100%",
                   padding: "12px 20px",
                   background: "transparent",
-                  color: "#EF4444",
+                  color: "var(--danger)",
                   border: "none",
                   cursor: "pointer",
                   textAlign: "left",
@@ -504,7 +576,7 @@ function Header({ onToggleSidebar, children }) {
                   gap: "10px",
                   transition: "background-color 0.2s",
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#fff5f5"}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(248,113,113,0.08)"}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
               >
                 <IoLogOutOutline size={18} />
