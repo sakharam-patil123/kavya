@@ -1433,6 +1433,17 @@ export default function Courses() {
     }
   };
 
+  // Helper to compute a storage key for course completion date per user+course
+  const getCompletionStorageKey = (uProfile = null, cId = null) => {
+    try {
+      const courseIdFromUrl = cId || new URLSearchParams(location.search || window.location.search).get('id') || window.localStorage.getItem('currentCourseId') || 'unknownCourse';
+      const userId = uProfile && uProfile._id ? uProfile._id : null;
+      return userId ? `completionDate_${userId}_${courseIdFromUrl}` : `completionDate_guest_${courseIdFromUrl}`;
+    } catch (e) {
+      return `completionDate_guest_unknown`;
+    }
+  };
+
   // Check enrollment status with backend on component mount and when URL query changes
   useEffect(() => {
     let active = true;
@@ -1792,15 +1803,100 @@ export default function Courses() {
     }
   };
 
-  const handleDownloadCertificate = () => {
+  const handleDownloadCertificate = async () => {
     // Only allow certificate download when progress is 100%
     if (typeof progressPercent !== 'undefined' && progressPercent < 100) {
       alert('You must complete 100% of the course to download the certificate.');
       return;
     }
 
-    const cert = { title: "Full Stack Development", date: "Oct 2024" };
-    const profileName = "Deepak Kumar"; // Hardcoded as in Profile.jsx
+    // Resolve dynamic values: student name, course title and completion date
+    const courseId = new URLSearchParams(location.search || window.location.search).get('id') || window.localStorage.getItem('currentCourseId');
+    const certTitle = enrolledCourseTitle || window.localStorage.getItem('currentCourseTitle') || 'Course Completion';
+
+    // Derive profile name from loaded profile if available (try several fields)
+    // If we have an auth token but no loaded `userProfile`, try to fetch it so we have the real name
+    try {
+      const token = window.localStorage.getItem('token');
+      if (token && !userProfile) {
+        try {
+          const res = await fetch('/api/auth/profile', { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } });
+          if (res.ok) {
+            const profileData = await res.json();
+            // helpful debug log — can be removed later
+            console.debug('Fetched profile for certificate generation:', profileData);
+            // update local state so the rest of the component can reuse it
+            setUserProfile(profileData);
+          } else {
+            console.debug('Profile fetch returned non-ok status for certificate generation');
+          }
+        } catch (e) {
+          console.debug('Profile fetch failed in certificate generation:', e);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+  const profileName = (() => {
+      try {
+        const p = userProfile || {};
+        // Common full-name fields
+        if (p.name) return p.name;
+        if (p.fullName) return p.fullName;
+        if (p.full_name) return p.full_name;
+
+        // First/last combos (different possible keys)
+        const first = (p.firstName || p.first_name || p.firstname || '').trim();
+        const last = (p.lastName || p.last_name || p.lastname || '').trim();
+        const combined = `${first} ${last}`.trim();
+        if (combined) return combined;
+
+        // Other fallbacks
+        if (p.username) return p.username;
+        if (p.displayName) return p.displayName;
+        if (p.email) return p.email.split('@')[0];
+
+        // Nested shapes (e.g. { user: { name: ... } })
+        if (p.user && (p.user.name || p.user.first_name || p.user.firstName)) {
+          return p.user.name || `${p.user.firstName || p.user.first_name} ${p.user.lastName || p.user.last_name}`.trim();
+        }
+
+        // Try localStorage keys the app or other pages might set
+        const stored = window.localStorage.getItem('profileName') || window.localStorage.getItem('name') || window.localStorage.getItem('user');
+        if (stored) return stored;
+
+        return 'Student';
+      } catch (e) {
+        return 'Student';
+      }
+    })();
+
+    // Normalize display: title-case each word (turn 'ruhi' -> 'Ruhi')
+    const displayName = (() => {
+      try {
+        if (!profileName) return 'Student';
+        return profileName
+          .split(' ')
+          .filter(Boolean)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+      } catch (e) {
+        return profileName || 'Student';
+      }
+    })();
+
+    // Try to read a persisted completion date (ISO) for this user+course; fallback to today
+    let completionIso = null;
+    try {
+      const key = getCompletionStorageKey(userProfile, courseId);
+      completionIso = window.localStorage.getItem(key);
+    } catch (e) {
+      completionIso = null;
+    }
+    const completionDate = completionIso ? new Date(completionIso).toLocaleDateString() : new Date().toLocaleDateString();
+
+    const cert = { title: certTitle, date: completionDate };
     const doc = new jsPDF("landscape", "pt", "a4");
     const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -1825,11 +1921,11 @@ export default function Courses() {
       align: "center",
     });
 
-    // Recipient Name
-    doc.setFont("times", "bold");
-    doc.setFontSize(28);
-    doc.setTextColor(27, 51, 127);
-    doc.text(profileName, pageWidth / 2, 200, { align: "center" });
+  // Recipient Name
+  doc.setFont("times", "bold");
+  doc.setFontSize(28);
+  doc.setTextColor(27, 51, 127);
+  doc.text(displayName, pageWidth / 2, 200, { align: "center" });
 
     // Course Info
     doc.setFont("helvetica", "normal");
@@ -2097,7 +2193,19 @@ export default function Courses() {
                             console.warn('⚠️ Error marking lesson complete:', err);
                           }
                         })();
-                        
+
+                        // If the updated watched list completes the course, persist a completion date
+                        try {
+                          const courseIdForKey = new URLSearchParams(location.search || window.location.search).get('id') || window.localStorage.getItem('currentCourseId');
+                          const key = getCompletionStorageKey(userProfile, courseIdForKey);
+                          if (enrolled && Array.isArray(updated) && updated.length === totalLessons) {
+                            const nowIso = new Date().toISOString();
+                            window.localStorage.setItem(key, nowIso);
+                          }
+                        } catch (err) {
+                          console.warn('Could not persist course completion date', err);
+                        }
+
                         return updated;
                       });
                     }
