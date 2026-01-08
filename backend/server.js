@@ -123,6 +123,7 @@ app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/parents', parentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/schedule', scheduleRoutes);
+app.use('/api/uploads', uploadRoutes);
 
 // Search
 app.use('/api/search', searchRoutes);

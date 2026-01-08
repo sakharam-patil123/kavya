@@ -47,6 +47,14 @@ const courseSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    resourceUrl: {
+        type: String,
+        default: ''
+    },
+    resourceName: {
+        type: String,
+        default: ''
+    },
     rating: {
         type: Number,
         default: 0
