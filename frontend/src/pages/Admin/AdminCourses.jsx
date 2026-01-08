@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 import AppLayout from '../../components/AppLayout';
 import CreateCourseModal from '../../components/CreateCourseModal';
+import '../../assets/admin-dark-mode.css';
 
 const AdminCourses = () => {
   const [courses, setCourses] = useState([]);
@@ -62,7 +63,7 @@ const AdminCourses = () => {
     <AppLayout showGreeting={false}>
       {/* FORM SECTION */}
       {showForm && (
-        <div style={{
+        <div className="add-course-panel" style={{
           background: '#fff',
           borderRadius: '15px',
           padding: '30px',
@@ -96,7 +97,7 @@ const AdminCourses = () => {
       )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h2>Courses</h2>
+        <h2 className="admin-heading">Courses</h2>
         <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
           {showForm ? "Hide Form" : "Add Course"}
         </button>

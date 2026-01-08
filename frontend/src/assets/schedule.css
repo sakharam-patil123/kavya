@@ -212,3 +212,32 @@ body {
     font-size: 0.85rem;
   }
 }
+
+/* Dark-mode override: force schedule and calendar text to black */
+.dark .schedule-card,
+.dark .schedule-card h1,
+.dark .schedule-card h2,
+.dark .schedule-card h3,
+.dark .schedule-card h4,
+.dark .schedule-card h5,
+.dark .schedule-card p,
+.dark .schedule-card span,
+.dark .schedule-card a,
+.dark .schedule-card .calendar-day,
+.dark .schedule-card .class-card,
+.dark .schedule-card .schedule-badge,
+.dark .schedule-card .today-event,
+.dark .schedule-card .modal-panel,
+.dark .schedule-card .btn-color,
+.dark .schedule-card .btn-reminder,
+.dark .schedule-card .btn-event,
+.dark .schedule-card .btn-modal,
+.dark .calendar-day,
+.dark .calendar-day span,
+.dark .class-card,
+.dark .class-card h5,
+.dark .class-card p,
+.dark .class-card span {
+  color: #000 !important;
+}
+

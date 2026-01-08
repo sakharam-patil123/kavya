@@ -9,8 +9,115 @@ body {
   margin: 0;
   padding: 0;
   font-family: "Inter", sans-serif;
-  background: #f5f7fa;
-  color: #333;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Theme variables */
+:root {
+  --bg: #f5f7fa;
+  --text: #1f2937;
+  --muted: #7180a3;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --border: #e5e5e5;
+  --primary: #2b6cb0;
+  --header-bg: #ffffff;
+  --sidebar-bg: #ffffff;
+  --danger: #EF4444;
+}
+
+/* Dark theme overrides (applied by adding `dark` class to <html>) */
+.dark {
+  --bg: #0b1220;
+  --text: #ffffff;
+  --muted: #9aa6bb;
+  --surface: #0f1724;
+  --card: #071029;
+  --border: #1f2a37;
+  --primary: #4aa3ff;
+  --header-bg: #071029;
+  --sidebar-bg: #071029;
+  --danger: #f87171;
+}
+
+/* smooth transitions when switching themes */
+html, body, .main-content, .sidebar, .card, .header-wrapper, .dropdown-menu {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Strong dark-mode overrides to catch inline styles and ensure readable text */
+.dark body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+.dark body,
+.dark body * {
+  color: var(--text) !important;
+}
+.dark .main-content,
+.dark .card,
+.dark .sidebar,
+.dark .header-wrapper,
+.dark .dropdown-menu {
+  background-color: var(--card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+.dark .main-content *,
+.dark .card *,
+.dark .sidebar *,
+.dark .header-wrapper *,
+.dark .dropdown-menu * {
+  color: var(--text) !important;
+}
+.dark input,
+.dark textarea,
+.dark select,
+.dark button {
+  background-color: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--muted) !important;
+  opacity: 0.7;
+}
+.dark a,
+.dark .nav-link,
+.dark .mobile-toggle {
+  color: var(--primary) !important;
+}
+.dark a:visited {
+  color: #80b0ff !important;
+}
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6,
+.dark p,
+.dark span,
+.dark div,
+.dark label,
+.dark td,
+.dark th {
+  color: var(--text) !important;
+}
+.dark .header-notification,
+.dark .header-profile {
+  filter: brightness(0) invert(1) !important;
+}
+.dark table {
+  background-color: var(--card) !important;
+  color: var(--text) !important;
+}
+.dark table td,
+.dark table th {
+  color: var(--text) !important;
+  border-color: var(--border) !important;
 }
 
 .header {
@@ -31,8 +138,8 @@ body {
   position: absolute;
   top: 70px;
   right: 0;
-  background: white;
-  border: 1px solid #ddd;
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 0;
   width: 120px;
@@ -57,8 +164,8 @@ body {
 /* SIDEBAR */
 .sidebar {
   width: 260px !important;
-  background: #fff;
-  border-right: 1px solid #e5e5e5;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
   padding: 20px;
   position: relative;
   z-index: 3000;
@@ -100,33 +207,33 @@ body {
   width: 211px;
   height: 45px;
   font-size: 17px;
-  color: #2b6cb0;
+  color: var(--primary);
   text-decoration: none;
   border-radius: 15px;
   transition: all 0.3s ease;
 }
 .sidebar .nav-link.active,
 .sidebar .nav-link:hover {
-  background: #2b6cb0;
+  background: var(--primary);
   color: white !important;
 }
 .sidebar .nav-link.active:hover {
-  background: #2b6cb0;
+  background: var(--primary);
   color: white !important;
 }
 .sidebar .nav-link:hover {
-  color: #2b6cb0 !important;
-  background-color: #edf2f7;
+  color: var(--primary) !important;
+  background-color: var(--bg);
 }
 .nav-link .nav-icon {
   margin-right: 10px;
-  color: #2b6cb0;
+  color: var(--primary);
   padding: 8px;
 }
 .sidebar .nav-link .nav-icon svg {
   width: 25px;
   height: 20px;
-  stroke: #2b6cb0;
+  stroke: var(--primary);
   transition: stroke 0.3s ease;
 }
 .sidebar .nav-link:hover .nav-icon svg,
@@ -144,7 +251,7 @@ body {
 .main-content {
   flex: 1;
   padding: 20px;
-  background-color: #edf2f7;
+  background-color: var(--bg);
   /* background-color: #def2f4; */
   overflow-x: hidden;
   gap: 0px !important;
@@ -189,7 +296,7 @@ body {
 }
 
 .card {
-  background: #fff;
+  background: var(--card);
   border-radius: 15px;
   padding: 20px;
   margin-bottom: 20px;
@@ -502,17 +609,67 @@ ul {
   gap: 18px;
 }
 
-/* ICONS */
+/* Search box responsive tweaks */
+.header-right input[aria-label="Global search"] {
+  transition: width 0.2s ease;
+}
+
+@media (max-width: 768px) {
+  .header-right input[aria-label="Global search"] {
+    width: 160px !important;
+  }
+  .header-right div[role="button"] {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .header-right input[aria-label="Global search"] {
+    width: 120px !important;
+    padding: 6px 8px !important;
+  }
+}
+
+.header-theme-toggle {
+  height: auto;
+  width: auto;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  color: var(--text) !important;
+  font-size: 20px;
+  padding: 8px !important;
+  border: none !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.header-theme-toggle:hover {
+  opacity: 0.7;
+  transform: scale(1.1);
+}
+
+.header-theme-toggle:active {
+  transform: scale(0.95);
+}
+
+/* Make profile and notification icons consistent and compact */
 .header-notification {
-  height: 26px;
-  width: 26px;
+  height: 40px;
+  width: 40px;
   cursor: pointer;
+  border-radius: 50%;
+  object-fit: cover;
+  padding: 6px;
 }
 
 .header-profile {
-  height: 52px;
-  width: 52px;
+  height: 40px;
+  width: 40px;
   cursor: pointer;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 /* ---------------------------- */
@@ -541,12 +698,18 @@ ul {
 
   /* Resize icons slightly for cleaner mobile look */
   .header-notification {
-    height: 24px;
-    width: 24px;
+    height: 36px;
+    width: 36px;
+    padding: 4px;
   }
 
   .header-profile {
-    height: 48px;
-    width: 48px;
+    height: 40px;
+    width: 40px;
   }
+}
+
+/* Dark mode: Keep stat card titles black for contrast */
+.dark .stat-title {
+  color: #1f2937 !important;
 }

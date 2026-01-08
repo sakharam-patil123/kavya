@@ -129,6 +129,7 @@
   border-radius: 14px;
   margin-bottom: 12px;
   font-size: 15px;
+  color: #1f2937;
 }
 
 .class-item button {
@@ -143,6 +144,20 @@
 
 .class-item button:hover {
   background: #1f5a8a;
+}
+
+/* Dark mode: Keep upcoming classes text dark for better contrast */
+.dark .class-item {
+  background: #edf2f7 !important;
+  color: #1f2937 !important;
+}
+
+.dark .class-item * {
+  color: #1f2937 !important;
+}
+
+.dark .upcoming-head {
+  color: #1f2937 !important;
 }
 
 /* -----------------------------------------------------------
