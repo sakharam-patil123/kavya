@@ -1,7 +1,8 @@
 const express = require('express');
 const { registerUser, loginUser, getUserProfile, updateUserProfile, uploadPhoto, getStreak, getWeeklyStats, updateWeeklyStats } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
-const upload = require('../middleware/multer');
+const multerMiddleware = require('../middleware/multer');
+const upload = multerMiddleware.upload || multerMiddleware;
 
 const router = express.Router();
 
