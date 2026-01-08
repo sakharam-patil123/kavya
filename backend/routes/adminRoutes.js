@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { requirePermission } = require('../middleware/permissionMiddleware');
 const admin = require('../controllers/adminController');
+// Notes routes removed (feature reverted)
 
 // Users (admin or sub-admin with manageStudents permission)
 router.post('/users', protect, authorize('admin','sub-admin'), requirePermission('manageStudents'), admin.createUser);
@@ -29,6 +30,13 @@ router.delete('/enrollments/:id', protect, authorize('admin'), admin.deleteEnrol
 router.post('/announcements', protect, authorize('admin','sub-admin'), requirePermission('manageCourses'), admin.createAnnouncement);
 router.get('/announcements', protect, authorize('admin','sub-admin'), admin.listAnnouncements);
 router.delete('/announcements/:id', protect, authorize('admin'), admin.deleteAnnouncement);
+
+// Notes (Admin) - upload, list, delete
+const { uploadFiles } = require('../middleware/multer');
+const noteController = require('../controllers/noteController');
+router.post('/notes', protect, authorize('admin','sub-admin'), requirePermission('manageNotes'), uploadFiles.single('file'), noteController.uploadNote);
+router.get('/notes', protect, authorize('admin','sub-admin'), requirePermission('manageNotes'), noteController.listNotesAdmin);
+router.delete('/notes/:id', protect, authorize('admin','sub-admin'), requirePermission('manageNotes'), noteController.deleteNote);
 
 // Sub-admins
 router.post('/subadmins', protect, authorize('admin'), admin.createSubAdmin);

@@ -12,6 +12,7 @@ const {
   getStudentProfile
 } = require('../controllers/studentController');
 
+
 const router = express.Router();
 
 // Protect all routes - require student role
@@ -37,5 +38,9 @@ router.get('/achievements', getStudentAchievements);
 
 // Activity
 router.get('/activity', getStudentActivity);
+
+// Notes
+const noteController = require('../controllers/noteController');
+router.get('/notes', noteController.listStudentNotes);
 
 module.exports = router;
