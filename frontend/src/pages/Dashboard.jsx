@@ -9,6 +9,7 @@ import { FaArrowTrendUp } from "react-icons/fa6";
 import AppLayout from "../components/AppLayout";
 import ChatBox from "../components/ChatBox"; // ✅ Import ChatBox
 import "../assets/dashboard.css";
+import { getDashboardFeed } from "../api/index.js";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -28,12 +29,29 @@ function Dashboard() {
   const [isOverflowing, setIsOverflowing] = useState(false);
 
   // ANNOUNCEMENTS
-  const [announcements] = useState([
-    { text: "New batch starting soon", link: "https://example.com/batch" },
-    { text: "Live classes updated", link: "https://example.com/live" },
-    { text: "AI mentor improvements released", link: "https://example.com/ai" },
-    { text: "Exams scheduled for next week", link: "https://example.com/exams" },
-  ]);
+  const [dashboardFeed, setDashboardFeed] = useState([]); // Combined (live/upcoming/notifications/announcements)
+  const [announcements] = useState([]); // kept for backward compatibility, but we render `dashboardFeed` primarily
+
+  // Helper to map feed items to display text for ticker
+  const feedToTicker = (item) => {
+    try {
+      if (!item) return '';
+      const when = item.date ? new Date(item.date).toLocaleString() : '';
+      switch (item.source) {
+        case 'event':
+          return `${item.status}: ${item.title} ${item.instructor ? `— ${item.instructor}` : ''} ${when}`;
+        case 'notification':
+          return `${item.title} ${item.message ? `— ${item.message}` : ''} ${when}`;
+        case 'announcement':
+          return `${item.title} — ${item.message} ${when}`;
+        default:
+          return item.title || item.message || '';
+      }
+    } catch (e) {
+      return item.title || item.message || '';
+    }
+  };
+
 
   // UPCOMING CLASSES
   const upcoming = [
@@ -264,6 +282,18 @@ function Dashboard() {
           }));
           setLeaderboard(topThree);
         }
+
+        // Fetch dashboard feed (combined live/upcoming/notifications/announcements)
+        try {
+          const feedRes = await getDashboardFeed(50);
+          if (feedRes && feedRes.success) {
+            setDashboardFeed(feedRes.data || []);
+          } else if (feedRes) {
+            setDashboardFeed(feedRes.data || []);
+          }
+        } catch (err) {
+          console.warn('Failed to load dashboard feed:', err);
+        }
       } catch (err) {
         console.warn('Could not load dashboard data', err);
       }
@@ -291,6 +321,31 @@ function Dashboard() {
     return () => {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('enrollmentUpdated', handleEnrollmentUpdate);
+    };
+  }, []);
+
+  // Poll dashboard feed every 30 seconds so students see near-real-time updates
+  useEffect(() => {
+    let mounted = true;
+
+    const loadFeed = async () => {
+      try {
+        const res = await getDashboardFeed(50);
+        if (!mounted) return;
+        if (res && res.success) setDashboardFeed(res.data || []);
+        else setDashboardFeed(res.data || []);
+      } catch (err) {
+        console.warn('Failed to poll dashboard feed', err);
+      }
+    };
+
+    // Initial load
+    loadFeed();
+    const id = setInterval(loadFeed, 30000); // 30s
+
+    return () => {
+      mounted = false;
+      clearInterval(id);
     };
   }, []);
 
@@ -349,14 +404,18 @@ function Dashboard() {
         <StatCard title="Achievements" value={achievementsCount} color1="#46BA7D" color2="#3CB49F" IconComponent={LuAward} />
       </div>
 
-      {/* ============ ANNOUNCEMENTS SCROLL ============ */}
+      {/* ============ ANNOUNCEMENTS / FEED SCROLL ============ */}
       <div className="latest-announcement" style={{ background: "#d9e8feff", padding: "12px 0", margin: "20px 0", borderRadius: "10px", overflow: "hidden", whiteSpace: "nowrap" }}>
         <div style={{ display: "inline-block", paddingLeft: "100%", animation: "scroll-left 15s linear infinite", fontSize: "16px", fontWeight: "500", color: "#1A365D" }}>
-          {announcements.map((a, index) => (
-            <a key={index} href={a.link} target="_blank" rel="noopener noreferrer" style={{ marginRight: "30px", color: "#1A365D", textDecoration: "none", cursor: "pointer" }}>
-              {a.text}
-            </a>
-          ))}
+          {dashboardFeed && dashboardFeed.length > 0 ? (
+            dashboardFeed.slice(0, 20).map((item, index) => (
+              <span key={item.id || index} style={{ marginRight: "30px", color: "#1A365D", textDecoration: "none", cursor: "pointer" }}>
+                {feedToTicker(item)}
+              </span>
+            ))
+          ) : (
+            <span style={{ color: "#1A365D" }}>No recent updates. Stay tuned!</span>
+          )}
         </div>
       </div>
 
