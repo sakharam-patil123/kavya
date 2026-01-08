@@ -734,6 +734,24 @@ function ResourceList({ resources, enrolled = false }) {
       return;
     }
 
+    // If resource has an external URL (e.g. uploaded to cloud storage), open in new tab
+    const externalUrl = resource.url || resource.resourceUrl || resource.resource_url;
+    if (externalUrl) {
+      // Use anchor to trigger download where possible, otherwise open in new tab
+      const link = document.createElement('a');
+      link.href = externalUrl;
+      // Try to set filename when possible
+      try {
+        link.download = resource.name || '';
+      } catch (e) {}
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+
     // For default non-PDF resources (e.g., .zip), create a simple placeholder file
     const blob = new Blob(
       [`Sample content for ${resource.name} (placeholder file).`],
@@ -769,7 +787,7 @@ function ResourceList({ resources, enrolled = false }) {
               </div>
               <div className="resource-name">
                 {resource.name}
-                {resource.dataURL && (
+                {(resource.dataURL || resource.url || resource.resourceUrl) && (
                   <span className="badge bg-success ms-2">Uploaded</span>
                 )}
               </div>
@@ -1976,6 +1994,38 @@ export default function Courses() {
       }
     })();
   }, []);
+
+  // Fetch single course details (if viewing a course) and merge backend-provided
+  // resource into the resources list so students can see/download uploaded PDFs.
+  useEffect(() => {
+    const courseId = new URLSearchParams(location.search || window.location.search).get('id');
+    if (!courseId) return;
+
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/courses/${courseId}`);
+        if (!res.ok) return;
+        const course = await res.json();
+        if (!course) return;
+        const url = course.resourceUrl || course.resource_url || course.resource;
+        if (!url) return;
+        const name = course.resourceName || course.resource_name || (url.split('/').pop() || 'resource.pdf');
+        if (active) {
+          setResources((prev) => {
+            // avoid duplicates by URL or name
+            const exists = prev && prev.some(r => r.url === url || r.resourceUrl === url || r.name === name || r.dataURL === url);
+            if (exists) return prev;
+            const newRes = { name, type: 'pdf', url, dataURL: null };
+            return [newRes, ...(prev || [])];
+          });
+        }
+      } catch (e) {
+        // ignore fetch errors
+      }
+    })();
+    return () => { active = false; };
+  }, [location.search]);
 
   // Scroll curriculum into view whenever it's opened
   useEffect(() => {

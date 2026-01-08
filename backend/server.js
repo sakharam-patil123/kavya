@@ -101,6 +101,7 @@ const enrollmentRoutes = require('./routes/enrollmentRoutes');
 const parentRoutes = require('./routes/parentRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -122,6 +123,7 @@ app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/parents', parentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/schedule', scheduleRoutes);
+app.use('/api/uploads', uploadRoutes);
 
 // Welcome route - serve frontend index if present
 app.get("/", (req, res) => {
