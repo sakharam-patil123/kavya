@@ -100,6 +100,7 @@ const studentRoutesFile = require('./routes/studentRoutes');
 const enrollmentRoutes = require('./routes/enrollmentRoutes');
 const parentRoutes = require('./routes/parentRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 

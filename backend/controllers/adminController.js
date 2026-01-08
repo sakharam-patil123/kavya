@@ -191,14 +191,37 @@ exports.deleteCourse = async (req, res) => {
 // --- Enrollments ---
 exports.createEnrollment = async (req, res) => {
   try {
-    const { studentId, courseId } = req.body;
+    const { studentId, courseId, isFree } = req.body;
     if (!studentId || !courseId) return res.status(400).json({ message: 'studentId and courseId required' });
     const existing = await Enrollment.findOne({ studentId, courseId });
     if (existing) return res.status(400).json({ message: 'Student already enrolled' });
-    const enrollment = await Enrollment.create({ studentId, courseId });
+
+    // If admin marks as free, activate immediately and mark isFree
+    const enrollmentPayload = { studentId, courseId };
+    if (isFree) {
+      enrollmentPayload.isFree = true;
+      enrollmentPayload.enrollmentStatus = 'active';
+      enrollmentPayload.enrolledAt = new Date();
+    }
+
+    const enrollment = await Enrollment.create(enrollmentPayload);
+
     // Add student to course.studentsEnrolled
     await Course.findByIdAndUpdate(courseId, { $addToSet: { studentsEnrolled: studentId } });
-    await ActivityLog.create({ action: 'create_enrollment', performedBy: req.user._id, targetType: 'Enrollment', targetId: enrollment._id, details: { studentId, courseId } });
+
+    // If free, also add to user's enrolledCourses so dashboard shows it immediately
+    if (isFree) {
+      const user = await User.findById(studentId);
+      if (user) {
+        const already = user.enrolledCourses.find(ec => ec.course && ec.course.toString() === courseId.toString());
+        if (!already) {
+          user.enrolledCourses.push({ course: courseId, completedLessons: [], hoursSpent: 0, completionPercentage: 0 });
+          await user.save();
+        }
+      }
+    }
+
+    await ActivityLog.create({ action: 'create_enrollment', performedBy: req.user._id, targetType: 'Enrollment', targetId: enrollment._id, details: { studentId, courseId, isFree: !!isFree } });
     res.status(201).json(enrollment);
   } catch (err) {
     res.status(400).json({ message: err.message });
