@@ -43,6 +43,7 @@ function Sidebar({ isOpen, setIsOpen }) {
     ...(userRole !== 'instructor' && userRole !== 'admin' && userRole !== 'sub-admin' && userRole !== 'parent' ? [
       { path: "/dashboard", label: "Dashboard", icon: <FiHome /> },
       { path: "/courses", label: "Courses", icon: <FiBookOpen /> },
+      { path: "/student/notes", label: "Notes", icon: <LuGalleryHorizontalEnd /> },
     ] : []),
     
     // Admin items
@@ -50,6 +51,7 @@ function Sidebar({ isOpen, setIsOpen }) {
       { path: "/admin/dashboard", label: "Admin Dashboard", icon: <TbReportAnalytics /> },
       { path: "/admin/students", label: "Manage Students", icon: <LuUser /> },
       { path: "/admin/courses", label: "Manage Courses", icon: <FiBookOpen /> },
+      { path: "/admin/notes", label: "Notes", icon: <LuGalleryHorizontalEnd /> },
       { path: "/admin/settings", label: "Admin Settings", icon: <TbReportAnalytics /> },
     ] : []),
     
