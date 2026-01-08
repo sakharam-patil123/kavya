@@ -24,6 +24,7 @@ function Dashboard() {
   const [earnedBadges, setEarnedBadges] = useState([]); // Track user's earned badges
   const [reminders, setReminders] = useState({}); // Track which classes user has set reminders for
   const [enrolledCourses, setEnrolledCourses] = useState([]); // Fetch enrolled courses from backend
+  const [showAllCourses, setShowAllCourses] = useState(false);
   const coursesContainerRef = useRef(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
 
@@ -369,12 +370,12 @@ function Dashboard() {
             <div className="card-header bg-white" style={{ borderColor: "white" }}>
               <h3 className="fw-normal">Your Courses</h3>
               {/* Show View More Courses button only when there are 2+ enrolled courses */}
-              {enrolledCourses && enrolledCourses.length >= 2 && (
+              {enrolledCourses && enrolledCourses.length > 3 && (
                 <button
                   className="view-btn"
-                  onClick={() => navigate('/courses')}
+                  onClick={() => setShowAllCourses((s) => !s)}
                 >
-                  View More Courses
+                  {showAllCourses ? 'Show Less' : 'View More Courses'}
                 </button>
               )}
             </div>
@@ -386,7 +387,7 @@ function Dashboard() {
                   overflow: 'hidden'
                 }}
               >
-                {enrolledCourses.map((course) => (
+                {(showAllCourses ? enrolledCourses : enrolledCourses.slice(0, 3)).map((course) => (
                   <div key={course._id || course.name} className="progress-item">
                     <div className="label">
                       <span>{course.name}</span>

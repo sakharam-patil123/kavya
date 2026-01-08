@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import AppLayout from "../components/AppLayout";
 import SmallChatBox from "../components/SmallChatBox";
+import { jsPDF } from "jspdf";
 import avatarFemale from "../assets/avatar-female.svg";
 import profileAvatar from "../assets/profile.png";
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -132,6 +133,31 @@ export default function Profile() {
 
           if (progress && Array.isArray(progress.certificates)) {
             setCertificates(progress.certificates);
+            // Migrate any guest-scoped completion dates to the user-scoped key so
+            // certificates recorded before login are available in the profile.
+            try {
+              const userId = profileRes && (profileRes._id || profileRes.id) ? (profileRes._id || profileRes.id) : null;
+              if (userId) {
+                progress.certificates.forEach((c) => {
+                  try {
+                    const cid = c.courseId || c.id || (c.course && c.course.id);
+                    if (!cid) return;
+                    const guestKey = `completionDate_guest_${cid}`;
+                    const userKey = `completionDate_${userId}_${cid}`;
+                    const guestVal = window.localStorage.getItem(guestKey);
+                    if (guestVal && !window.localStorage.getItem(userKey)) {
+                      window.localStorage.setItem(userKey, guestVal);
+                      window.localStorage.removeItem(guestKey);
+                      console.log('🔁 Migrated guest completion date to user key for course', cid);
+                    }
+                  } catch (e) {
+                    // ignore per-course migration errors
+                  }
+                });
+              }
+            } catch (e) {
+              // ignore migration errors
+            }
           }
 
           if (progress && Array.isArray(progress.recentActivity)) {
@@ -168,11 +194,19 @@ export default function Profile() {
       loadProfileData();
     };
     window.addEventListener('enrollmentUpdated', handleEnrollmentUpdate);
+
+    // Re-fetch when a course completion is recorded elsewhere (Courses page writes completion)
+    const handleCourseCompletion = (ev) => {
+      console.log('🔔 Profile: detected courseCompletionRecorded', ev?.detail);
+      loadProfileData();
+    };
+    window.addEventListener('courseCompletionRecorded', handleCourseCompletion);
     console.log('✅ Profile: Event listeners registered');
 
     return () => {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('enrollmentUpdated', handleEnrollmentUpdate);
+      window.removeEventListener('courseCompletionRecorded', handleCourseCompletion);
     };
   }, []);
   
@@ -188,6 +222,29 @@ export default function Profile() {
 
   const [certificates, setCertificates] = useState([]);
 
+  // Helper to compute completion key for localStorage per user+course
+  const getCompletionStorageKey = (profileObj, courseId) => {
+    try {
+      const cid = courseId || (profileObj && profileObj.currentCourseId) || null;
+      const userId = profileObj?._id || profileObj?.id || null;
+      if (!cid) return null;
+      return userId ? `completionDate_${userId}_${cid}` : `completionDate_guest_${cid}`;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const certificateAvailable = (cert) => {
+    try {
+      const courseId = cert.courseId || cert.id || (cert.course && cert.course.id);
+      const key = getCompletionStorageKey(profile, courseId);
+      if (!key) return false;
+      return !!window.localStorage.getItem(key);
+    } catch (e) {
+      return false;
+    }
+  };
+
   const prefs = {
     goal: "2 hours",
     level: "Intermediate",
@@ -196,33 +253,90 @@ export default function Profile() {
   };
 
   const handleDownloadCertificate = async (cert) => {
-    if (!cert.courseId || cert.status === "Pending") return;
+    // Generate client-side certificate that matches Courses page behavior.
+    const courseId = cert.courseId || cert.id || (cert.course && cert.course.id);
+    if (!courseId) {
+      alert('Cannot determine course id for this certificate');
+      return;
+    }
+
     try {
-      setLoadingCertCourseId(cert.courseId);
-      const api = await import("../api");
-      const blob = await api.downloadCertificate(cert.courseId);
+      setLoadingCertCourseId(courseId);
 
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      const safeTitle = (cert.title || "Course").replace(/[^a-z0-9]/gi, "_");
-      link.download = `${safeTitle}_Certificate.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      // If no recorded completion date, ask user to confirm writing today's date
+      if (!certificateAvailable(cert)) {
+        const ok = window.confirm('We do not have a recorded completion date for this course. If you proceed, today will be recorded as the completion date and used on the certificate. Continue?');
+        if (!ok) return;
+        try {
+          const key = getCompletionStorageKey(profile, courseId);
+          if (key) window.localStorage.setItem(key, new Date().toISOString());
+        } catch (e) {
+          console.warn('Could not persist forced completion date', e);
+        }
+      }
 
-      // Optimistically update status in the UI
-      setCertificates((prev) =>
-        prev.map((c) =>
-          c.courseId === cert.courseId ? { ...c, status: "Downloaded" } : c
-        )
-      );
+      // Build display name
+      let profileName = profile?.name || profile?.fullName || profile?.full_name || '';
+      if (!profileName) {
+        const first = (profile?.firstName || profile?.first_name || '').trim();
+        const last = (profile?.lastName || profile?.last_name || '').trim();
+        profileName = `${first} ${last}`.trim();
+      }
+      if (!profileName) profileName = window.localStorage.getItem('profileName') || 'Student';
+      const displayName = profileName.split(' ').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+      const certTitle = cert.title || cert.courseTitle || cert.name || 'Course Completion';
+
+      // Read stored completion ISO for this user+course
+      let completionIso = null;
+      try {
+        const key = getCompletionStorageKey(profile, courseId);
+        completionIso = key ? window.localStorage.getItem(key) : null;
+      } catch (e) {
+        completionIso = null;
+      }
+      const completionDate = completionIso ? new Date(completionIso).toLocaleDateString() : new Date().toLocaleDateString();
+
+      // Generate PDF
+      const doc = new jsPDF('landscape', 'pt', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+      doc.setDrawColor(212, 175, 55);
+      doc.setLineWidth(5);
+      doc.rect(20, 20, pageWidth - 40, 550);
+      doc.setFont('times', 'bold');
+      doc.setFontSize(32);
+      doc.setTextColor(27, 51, 127);
+      doc.text('Certificate of Completion', pageWidth / 2, 100, { align: 'center' });
+      doc.setFontSize(18);
+      doc.setFont('times', 'italic');
+      doc.setTextColor(0, 0, 0);
+      doc.text('This certificate is proudly presented to', pageWidth / 2, 150, { align: 'center' });
+      doc.setFont('times', 'bold');
+      doc.setFontSize(28);
+      doc.setTextColor(27, 51, 127);
+      doc.text(displayName, pageWidth / 2, 200, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(18);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`for successfully completing the`, pageWidth / 2, 240, { align: 'center' });
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.setTextColor(60, 60, 60);
+      doc.text(`${certTitle}`, pageWidth / 2, 270, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(14);
+      doc.text(`Date: ${completionDate}`, pageWidth / 2, 320, { align: 'center' });
+      doc.setFontSize(16);
+      doc.setTextColor(100, 100, 100);
+      doc.text('KavyaLearn Academy', pageWidth / 2, 370, { align: 'center' });
+
+      const safeTitle = (certTitle || 'Course').replace(/[^a-z0-9]/gi, '_');
+      doc.save(`${safeTitle}_Certificate.pdf`);
+
+      setCertificates((prev) => prev.map((c) => (c.courseId === courseId || c.id === courseId ? { ...c, status: 'Downloaded' } : c)));
     } catch (err) {
-      alert(
-        err?.message ||
-          "Certificate is not yet available. Please complete the course first."
-      );
+      console.error('Certificate generation failed', err);
+      alert(err?.message || 'Certificate could not be generated.');
     } finally {
       setLoadingCertCourseId(null);
     }
@@ -507,15 +621,11 @@ export default function Profile() {
                     </div>
                     <button
                       className="download-btn"
-                      disabled={
-                        cert.status === "Pending" ||
-                        loadingCertCourseId === cert.courseId
-                      }
+                      disabled={loadingCertCourseId === (cert.courseId || cert.id || (cert.course && cert.course.id))}
                       onClick={() => handleDownloadCertificate(cert)}
+                      title={!certificateAvailable(cert) ? 'Certificate not yet recorded — click to record and download' : undefined}
                     >
-                      {cert.status === "Downloaded"
-                        ? "Re-download"
-                        : "Download"}
+                      {cert.status === "Downloaded" ? "Re-download" : "Download"}
                     </button>
                   </div>
                 ))}
