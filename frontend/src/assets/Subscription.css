@@ -70,7 +70,7 @@ body {
 .premium-badge {
   position: absolute;
   top: 1rem;
-  right: 1rem;
+  left: 1rem;
   background-color: #10b981;
   color: white;
   font-size: 0.75rem;
@@ -153,6 +153,69 @@ body {
 
 .course-button:hover {
   background-color: #1a365d;
+}
+
+/* Favorite / Pin button */
+.favorite-btn {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: rgba(255,255,255,0.9);
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s;
+  color: #9ca3af;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  z-index: 30;
+}
+
+.favorite-btn:hover {
+  transform: scale(1.08);
+  color: #ef4444;
+  background: rgba(255,255,255,1);
+}
+
+.favorite-active {
+  background: linear-gradient(135deg,#fff1f2,#fff7f7);
+  color: #ef4444;
+  transform: scale(1.05);
+}
+
+/* Filters / Tabs */
+.course-list-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.filters {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filter-btn {
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  padding: 0.4rem 0.75rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  color: #374151;
+  font-weight: 600;
+  transition: background-color 0.15s, color 0.15s, transform 0.12s;
+}
+
+.filter-btn:hover { transform: translateY(-1px); }
+
+.filter-btn.active {
+  background: #2b6cb0;
+  color: white;
+  border-color: transparent;
 }
 
 /* Course Detail Styles */

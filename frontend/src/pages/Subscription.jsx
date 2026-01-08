@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Star, Clock, ChevronRight, Users } from "lucide-react";
+import { ArrowLeft, Star, Clock, ChevronRight, Users, Heart } from "lucide-react";
 import "../assets/Subscription.css";
 import AppLayout from "../components/AppLayout";
 import { useNavigate } from "react-router-dom"; // <-- Added
@@ -328,11 +328,20 @@ const resolveCourseLogo = (course) => {
 };
 
 // CourseCard Component
-function CourseCard({ course, onEnroll }) {
+function CourseCard({ course, onEnroll, isFavorite, onToggleFavorite }) {
   return (
     <div className="course-card">
       <div className="course-card-content">
         {course.isPremium && <span className="premium-badge">PREMIUM</span>}
+
+        <button
+          className={`favorite-btn ${isFavorite ? 'favorite-active' : ''}`}
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite(String(course.id)); }}
+          aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <Heart size={18} />
+        </button>
 
         <div className="course-image-container">
           <div className="course-image-wrapper">
@@ -375,6 +384,25 @@ function CourseCard({ course, onEnroll }) {
 function CourseListing({ onCourseSelect }) {
   const [courses, setCourses] = useState(staticCourses);
   const [loading, setLoading] = useState(true);
+  const [favorites, setFavorites] = useState(() => {
+    try {
+      const raw = localStorage.getItem('favorites');
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [filter, setFilter] = useState('all'); // 'all' | 'favorites'
+
+  const toggleFavorite = (courseId) => {
+    const idStr = String(courseId);
+    setFavorites((prev) => {
+      const exists = prev.includes(idStr);
+      const next = exists ? prev.filter((p) => p !== idStr) : [...prev, idStr];
+      try { localStorage.setItem('favorites', JSON.stringify(next)); } catch (e) {}
+      return next;
+    });
+  };
 
   useEffect(() => {
     // Fetch real courses from backend
@@ -443,12 +471,31 @@ function CourseListing({ onCourseSelect }) {
   return (
     <div className="course-listing">
       <div className="course-listing-container">
+        <div className="course-list-controls">
+          <div className="filters">
+            <button
+              className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+              onClick={() => setFilter('all')}
+            >
+              All ({courses.length})
+            </button>
+            <button
+              className={`filter-btn ${filter === 'favorites' ? 'active' : ''}`}
+              onClick={() => setFilter('favorites')}
+            >
+              Favorites ({favorites.length})
+            </button>
+          </div>
+        </div>
+
         <div className="course-grid">
-          {courses.map((course) => (
+          {(filter === 'all' ? courses : courses.filter(c => favorites.includes(String(c.id)))).map((course) => (
             <CourseCard
               key={course.id}
               course={course}
               onEnroll={onCourseSelect}
+              isFavorite={favorites.includes(String(course.id))}
+              onToggleFavorite={toggleFavorite}
             />
           ))}
         </div>
