@@ -3,6 +3,9 @@ const Course = require('../models/courseModel');
 const Enrollment = require('../models/enrollmentModel');
 const Achievement = require('../models/achievementModel');
 const Lesson = require('../models/lessonModel');
+const Event = require('../models/eventModel');
+const Announcement = require('../models/announcementModel');
+const Notification = require('../models/notificationModel');
 
 // @desc    Get student dashboard data
 // @route   GET /api/student/dashboard
