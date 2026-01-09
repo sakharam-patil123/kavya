@@ -112,6 +112,9 @@ exports.activateEnrollment = async (req, res) => {
         // Update enrollment status to active
         enrollment.enrollmentStatus = 'active';
         enrollment.paymentId = paymentId;
+        // Mark as paid and ensure isFree is false
+        enrollment.purchaseStatus = 'paid';
+        enrollment.isFree = false;
         enrollment.enrolledAt = new Date();
         await enrollment.save();
 
