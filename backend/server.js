@@ -60,6 +60,16 @@ const corsOptions = {
     // Accept exact matches from allowedOrigins
     if (allowedOrigins.includes(origin)) return callback(null, true);
 
+    // Allow any localhost origin on any port (dev convenience)
+    try {
+      const u = new URL(origin);
+      if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
+        return callback(null, true);
+      }
+    } catch (e) {
+      // ignore parse errors and fall through to reject
+    }
+
     // Not allowed — include the origin in the error message for diagnostics
     const err = new Error(`Not allowed by CORS — origin: ${origin}`);
     console.warn('⛔ CORS blocked request from origin:', origin);
