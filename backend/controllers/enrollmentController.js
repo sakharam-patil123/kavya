@@ -46,7 +46,10 @@ exports.createEnrollment = async (req, res) => {
             return res.status(409).json({ 
                 message: 'You have already enrolled in this course',
                 enrollmentId: existingEnrollment._id,
-                alreadyEnrolled: true
+                alreadyEnrolled: true,
+                enrollmentStatus: existingEnrollment.enrollmentStatus,
+                isFree: existingEnrollment.isFree === true,
+                purchaseStatus: existingEnrollment.purchaseStatus || null
             });
         }
 
@@ -163,16 +166,32 @@ exports.getEnrollmentStatus = async (req, res) => {
         if (!enrollment) {
             return res.json({ 
                 enrolled: false,
-                status: null
+                status: null,
+                isFree: false,
+                purchaseStatus: null,
+                isLocked: true
             });
         }
 
+        // Determine if enrollment should be treated as unlocked
+        const isFree = enrollment.isFree === true || (enrollment.purchaseStatus && String(enrollment.purchaseStatus).toLowerCase() === 'free');
+        const purchaseStatus = enrollment.purchaseStatus || null;
+        const isActive = enrollment.enrollmentStatus === 'active';
+        const hasPayment = !!enrollment.paymentId;
+
+        const enrolledFlag = isActive || isFree || hasPayment || (purchaseStatus && String(purchaseStatus).toLowerCase() === 'paid');
+
+        const isLocked = !(enrolledFlag || (purchaseStatus && String(purchaseStatus).toLowerCase() === 'paid'));
+
         res.json({
-            enrolled: enrollment.enrollmentStatus === 'active',
+            enrolled: enrolledFlag,
             status: enrollment.enrollmentStatus,
             enrollmentId: enrollment._id,
             progressPercentage: enrollment.progressPercentage,
-            completed: enrollment.completed
+            completed: enrollment.completed,
+            isFree,
+            purchaseStatus,
+            isLocked
         });
     } catch (error) {
         res.status(400).json({ message: error.message });

@@ -55,6 +55,14 @@ const courseSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    pdfResource: {
+        type: String,
+        default: ''
+    },
+    pdfResourceName: {
+        type: String,
+        default: ''
+    },
     rating: {
         type: Number,
         default: 0

@@ -44,6 +44,10 @@ router.get('/subadmins', protect, authorize('admin','sub-admin'), admin.listSubA
 router.put('/subadmins/:id', protect, authorize('admin'), admin.updateSubAdmin);
 router.delete('/subadmins/:id', protect, authorize('admin'), admin.deleteSubAdmin);
 
+// Upload PDF for course resource
+const { uploadPdf } = require('../middleware/multer');
+router.post('/course/upload-pdf/:courseId', protect, authorize('admin','sub-admin'), requirePermission('manageCourses'), uploadPdf.single('pdfResource'), admin.uploadCoursePdf);
+
 // Activity logs and dashboard
 router.get('/logs', protect, authorize('admin','sub-admin'), requirePermission('viewReports'), admin.listActivityLogs);
 router.get('/dashboard/summary', protect, authorize('admin','sub-admin'), requirePermission('viewReports'), admin.dashboardSummary);

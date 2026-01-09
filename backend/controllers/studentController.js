@@ -228,34 +228,43 @@ exports.getStudentCourses = async (req, res) => {
 // @access  Private/Student
 exports.getStudentCourse = async (req, res) => {
   try {
-    const student = await User.findById(req.user._id);
+    const courseId = req.params.courseId;
+    const student = await User.findById(req.user._id).select('enrolledCourses');
 
-    // Check if student is enrolled
-    const enrollment = student.enrolledCourses.find(ec => 
-      ec.course.toString() === req.params.courseId
-    );
+    if (!student) return res.status(404).json({ message: 'Student not found' });
 
+    // Try to find enrollment in the user's enrolledCourses subdocument first
+    let enrollment = student.enrolledCourses.find(ec => String(ec.course) === String(courseId));
+
+    // If not found in user subdocument, check the Enrollment collection
     if (!enrollment) {
-      return res.status(403).json({ success: false, message: 'Not enrolled in this course' });
+      const enrollmentDoc = await Enrollment.findOne({ studentId: req.user._id, courseId }).lean();
+      if (enrollmentDoc) {
+        enrollment = {
+          _id: enrollmentDoc._id,
+          course: enrollmentDoc.courseId || enrollmentDoc.course,
+          enrollmentStatus: enrollmentDoc.enrollmentStatus,
+          progressPercentage: enrollmentDoc.progressPercentage || 0,
+          completedLessons: enrollmentDoc.completedLessons || [],
+          completed: enrollmentDoc.completed || false,
+          isFree: enrollmentDoc.isFree === true,
+          purchaseStatus: enrollmentDoc.purchaseStatus || null,
+          paymentId: enrollmentDoc.paymentId || null
+        };
+      }
     }
 
-    const course = await Course.findById(req.params.courseId)
-      .populate('instructor', 'fullName email')
-      .populate('lessons');
+    if (!enrollment) return res.status(403).json({ message: 'Not enrolled in this course' });
 
-    res.json({
-      success: true,
-      data: {
-        course,
-        enrollment: {
-          completionPercentage: enrollment.completionPercentage,
-          hoursSpent: enrollment.hoursSpent,
-          completedLessons: enrollment.completedLessons,
-          enrollmentDate: enrollment.enrollmentDate,
-          certificateDownloadedAt: enrollment.certificateDownloadedAt
-        }
-      }
-    });
+    const course = await Course.findById(courseId).populate('instructor', 'fullName email').populate('lessons');
+
+    const isFree = enrollment.isFree === true || (enrollment.purchaseStatus && String(enrollment.purchaseStatus).toLowerCase() === 'free');
+    const hasPayment = !!enrollment.paymentId || (enrollment.purchaseStatus && String(enrollment.purchaseStatus).toLowerCase() === 'paid');
+    const isLocked = !(isFree || hasPayment || enrollment.enrollmentStatus === 'active');
+
+    const normalizedEnrollment = Object.assign({}, enrollment, { isFree, purchaseStatus: enrollment.purchaseStatus || null, isLocked });
+
+    return res.json({ success: true, data: { course, enrollment: normalizedEnrollment } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -445,7 +454,13 @@ exports.enrollCourse = async (req, res) => {
 
     // Check if already enrolled
     if (student.enrolledCourses.some(ec => ec.course.toString() === req.params.courseId)) {
-      return res.status(400).json({ success: false, message: 'Already enrolled in this course' });
+      return res.status(400).json({ success: false, message: 'You have already enrolled in this course' });
+    }
+
+    // Also check Enrollment collection (admin-assigned free enrollments or pending/active records)
+    const existingEnrollment = await Enrollment.findOne({ studentId: req.user._id, courseId: req.params.courseId });
+    if (existingEnrollment) {
+      return res.status(400).json({ success: false, message: 'You have already enrolled in this course' });
     }
 
     // Add to student's enrolled courses
@@ -501,69 +516,66 @@ exports.getStudentProfile = async (req, res) => {
 // @access  Private/Student
 exports.getEnrolledCourses = async (req, res) => {
   try {
-    const studentId = req.user._id;
+    const student = await User.findById(req.user._id).populate({
+      path: 'enrolledCourses.course',
+      populate: { path: 'instructor', select: 'fullName' }
+    });
 
-    // Fetch enrollments that are either paid (purchaseStatus==='paid' or have a paymentId)
-    // or explicitly marked free by admin (isFree === true)
-    const enrollments = await Enrollment.find({
-      studentId,
-      $or: [ { isFree: true }, { purchaseStatus: 'paid' }, { paymentId: { $ne: null } } ]
-    }).populate({ path: 'courseId', populate: { path: 'instructor', select: 'fullName' } });
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
     const map = {};
 
-    // Include enrollments from Enrollment collection
-    enrollments.forEach(e => {
-      if (!e.courseId) return;
-      const id = e.courseId._id.toString();
+    // Add courses from user's enrolledCourses first
+    (student.enrolledCourses || []).forEach(ec => {
+      if (!ec.course) return;
+      const id = String(ec.course._id);
       map[id] = {
-        _id: e.courseId._id,
-        title: e.courseId.title,
-        thumbnail: e.courseId.thumbnail,
-        instructor: e.courseId.instructor,
-        accessType: (e.isFree || e.purchaseStatus === 'free') ? 'Free' : 'Paid',
+        _id: ec.course._id,
+        title: ec.course.title,
+        thumbnail: ec.course.thumbnail,
+        instructor: ec.course.instructor,
+        accessType: 'Paid',
         progress: {
-          completionPercentage: e.progressPercentage || (e.completed ? 100 : 0),
-          hoursSpent: e.watchHours || 0
+          completionPercentage: ec.completionPercentage || 0,
+          hoursSpent: ec.hoursSpent || 0
         }
       };
     });
 
-    // Also include entries from User.enrolledCourses (progress stored there)
-    const student = await User.findById(studentId).populate({ path: 'enrolledCourses.course', populate: { path: 'instructor', select: 'fullName' } });
-    (student.enrolledCourses || []).forEach(ec => {
-      if (!ec.course) return;
-      const id = ec.course._id.toString();
+    // Fetch all Enrollment records for this student so we can prefer their access flags
+    const allEnrollments = await Enrollment.find({ studentId: req.user._id }).populate({ path: 'courseId', populate: { path: 'instructor', select: 'fullName' } });
+
+    // First, add any enrollments that are not already in map (enrollments-only entries)
+    allEnrollments.forEach(e => {
+      const c = e.courseId;
+      if (!c) return;
+      const id = String(c._id);
+      const isFree = e.isFree === true || (e.purchaseStatus && String(e.purchaseStatus).toLowerCase() === 'free');
+      const accessType = isFree ? 'Free' : 'Paid';
+
       if (!map[id]) {
-        // If not present in Enrollment collection, assume it's a paid enrollment (student-driven)
         map[id] = {
-          _id: ec.course._id,
-          title: ec.course.title,
-          thumbnail: ec.course.thumbnail,
-          instructor: ec.course.instructor,
-          accessType: 'Paid',
+          _id: c._id,
+          title: c.title,
+          thumbnail: c.thumbnail,
+          instructor: c.instructor,
+          accessType,
           progress: {
-            completionPercentage: ec.completionPercentage || 0,
-            hoursSpent: ec.hoursSpent || 0
+            completionPercentage: e.progressPercentage || (e.completed ? 100 : 0),
+            hoursSpent: e.watchHours || 0
           }
         };
       } else {
-        // Merge progress details (prefer User progress values)
-        map[id].progress = {
-          completionPercentage: ec.completionPercentage || map[id].progress.completionPercentage || 0,
-          hoursSpent: ec.hoursSpent || map[id].progress.hoursSpent || 0
-        };
+        // If the course already exists from user.enrolledCourses, prefer marking it Free when enrollment indicates so
+        if (isFree) {
+          map[id].accessType = 'Free';
+        }
       }
     });
 
     const courses = Object.values(map);
 
-    // Friendly empty state
-    if (courses.length === 0) {
-      return res.json({ success: true, count: 0, data: [] });
-    }
-
-    res.json({ success: true, count: courses.length, data: courses });
+    return res.json({ success: true, count: courses.length, data: courses });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -137,6 +137,42 @@ exports.updateCourse = async (req, res) => {
   }
 };
 
+// @desc Upload a PDF resource for a course and save it on server
+// @route POST /api/admin/course/upload-pdf/:courseId
+// @access Private (admin/sub-admin with manageCourses)
+exports.uploadCoursePdf = async (req, res) => {
+  try {
+    const courseId = req.params.courseId;
+    const file = req.file;
+    if (!file) return res.status(400).json({ message: 'No file uploaded' });
+
+    // Validate mimetype again
+    if (file.mimetype !== 'application/pdf') {
+      return res.status(400).json({ message: 'Only PDF files are allowed' });
+    }
+
+    // Build URL path to serve statically via /uploads
+    // file.path is available because uploadPdf uses diskStorage
+    const savedFilename = file.filename || file.path.split(require('path').sep).pop();
+    const pdfUrl = `/uploads/pdfs/${savedFilename}`;
+
+    // Update course document
+    const course = await Course.findById(courseId);
+    if (!course) return res.status(404).json({ message: 'Course not found' });
+
+    course.pdfResource = pdfUrl;
+    course.pdfResourceName = file.originalname || savedFilename;
+    await course.save();
+
+    await ActivityLog.create({ action: 'upload_course_pdf', performedBy: req.user._id, targetType: 'Course', targetId: course._id, details: { filename: savedFilename } });
+
+    res.json({ success: true, pdfResource: pdfUrl, pdfResourceName: course.pdfResourceName });
+  } catch (err) {
+    console.error('uploadCoursePdf error', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 exports.deleteCourse = async (req, res) => {
   try {
     const courseId = req.params.id;

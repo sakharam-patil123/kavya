@@ -127,6 +127,16 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/schedule', scheduleRoutes);
 // app.use('/api/uploads', uploadRoutes);
 
+// Ensure uploads folder exists and serve statically so uploaded PDFs are accessible
+const uploadsDir = path.join(__dirname, 'uploads');
+try {
+  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+  app.use('/uploads', express.static(uploadsDir));
+  console.log('➡️ Serving uploaded files from', uploadsDir);
+} catch (e) {
+  console.warn('Could not create or serve uploads directory:', e.message || e);
+}
+
 // Search
 app.use('/api/search', searchRoutes);
 
