@@ -587,7 +587,7 @@ function Header({ onToggleSidebar, children }) {
     <header className="header-wrapper" style={{ position: "relative" }}>
       <div className="header-left">
         <button className="mobile-toggle" onClick={onToggleSidebar}>☰</button>
-        <div className="header-title">{children}</div>
+        <div className="header-title" style={{ color: 'var(--text)' }}>{children}</div>
       </div>
  
       <div className="header-right" style={{ position: "relative" }}>
