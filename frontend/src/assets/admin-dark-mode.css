@@ -268,3 +268,22 @@
   border: 1px solid #e5e7eb !important;
   box-shadow: 0 6px 18px rgba(0,0,0,0.06) !important;
 }
+
+/* Header section text should be white in dark mode */
+.dark .header-wrapper,
+.dark .header-wrapper .header-title,
+.dark .header-wrapper .header-left,
+.dark .header-wrapper .header-right,
+.dark .header-wrapper h1,
+.dark .header-wrapper h2,
+.dark .header-wrapper h3,
+.dark .header-wrapper h4,
+.dark .header-wrapper h5,
+.dark .header-wrapper h6,
+.dark .header-wrapper p,
+.dark .header-wrapper span,
+.dark .header-wrapper a,
+.dark .header-wrapper label,
+.dark .header-wrapper .btn {
+  color: #fff !important;
+}
