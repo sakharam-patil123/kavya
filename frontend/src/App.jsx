@@ -33,6 +33,7 @@ import InstructorAnalytics from './pages/Instructor/InstructorAnalytics';
 // Student Pages
 import StudentDashboard from './pages/Student/StudentDashboard';
 import StudentCourses from './pages/Student/StudentCourses';
+import StudentEnrolledCourses from './pages/Student/StudentEnrolledCourses';
 import StudentAchievements from './pages/Student/StudentAchievements';
 import StudentActivity from './pages/Student/StudentActivity';
 import StudentNotes from './pages/Student/StudentNotes';
@@ -106,6 +107,8 @@ function Layout() {
           {/* Student Routes */}
           <Route path="/dashboard" element={<ProtectedRoute requireRole="student"><Dashboard /></ProtectedRoute>} />
           <Route path="/student/courses" element={<ProtectedRoute requireRole="student"><StudentCourses /></ProtectedRoute>} />
+          <Route path="/student/courses/:courseId" element={<ProtectedRoute requireRole="student"><StudentCourses /></ProtectedRoute>} />
+          <Route path="/student/enrolled-courses" element={<ProtectedRoute requireRole="student"><StudentEnrolledCourses /></ProtectedRoute>} />
           <Route path="/student/achievements" element={<ProtectedRoute requireRole="student"><StudentAchievements /></ProtectedRoute>} />
           <Route path="/student/activity" element={<ProtectedRoute requireRole="student"><StudentActivity /></ProtectedRoute>} />
           <Route path="/student/notes" element={<ProtectedRoute requireRole="student"><StudentNotes /></ProtectedRoute>} />

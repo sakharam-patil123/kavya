@@ -133,6 +133,7 @@ function Dashboard() {
         }
 
         // Fetch reminders from backend notifications
+        let remindersMap = {};
         try {
           const notificationsRes = await fetch('/api/notifications', {
             headers: {
@@ -145,7 +146,7 @@ function Dashboard() {
             const notifications = notificationsData.notifications || notificationsData || [];
             
             // Extract reminder event titles and set them in state
-            const remindersMap = {};
+            remindersMap = {};
             notifications.forEach(notif => {
               try {
                 // Extract from route if it contains eventTitle parameter
@@ -301,6 +302,17 @@ function Dashboard() {
     
     loadProfile();
 
+    // Poll the feed periodically (near-real-time)
+    const feedPollInterval = setInterval(() => {
+      console.log('🔄 Dashboard: Polling dashboard feed...');
+      fetch('/api/student/dashboard-feed', { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => d && setDashboardFeed(d.feed || []))
+        .catch(e => console.warn('Dashboard feed poll error:', e));
+    }, 30000); // 30s
+
+
+
     // Re-fetch data when window regains focus (e.g., after enrolling in another tab)
     const handleFocus = () => {
       console.log('🔄 Dashboard: Window focused, reloading data...');
@@ -318,10 +330,8 @@ function Dashboard() {
     console.log('✅ Dashboard: Event listeners registered');
     console.log('✅ Dashboard: Ready to receive enrollmentUpdated events');
 
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('enrollmentUpdated', handleEnrollmentUpdate);
-    };
+    // Note: listeners are removed by the single cleanup below (to avoid duplication)
+    
   }, []);
 
   // Poll dashboard feed every 30 seconds so students see near-real-time updates
@@ -379,7 +389,21 @@ function Dashboard() {
           ...prev,
           [classTitle]: true
         }));
-
+        // Update dashboard feed to reflect reminded state and add a transient notification headline
+        setDashboardFeed(prev => {
+          const updated = prev.map(i => i.title === classTitle ? { ...i, reminded: true } : i);
+          // Also add a short-lived notification to the top
+          const notice = {
+            id: `reminder-${Date.now()}`,
+            title: `Reminder set for ${classTitle}`,
+            message: `We'll remind you before ${classTitle}.`,
+            date: new Date().toISOString(),
+            status: 'Notification',
+            source: 'notification',
+            createdAt: new Date().toISOString()
+          };
+          return [notice, ...updated];
+        });
         // Dispatch event so Schedule page refreshes reminders
         window.dispatchEvent(new Event('reminderSet'));
 

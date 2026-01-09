@@ -137,6 +137,42 @@ exports.updateCourse = async (req, res) => {
   }
 };
 
+// @desc Upload a PDF resource for a course and save it on server
+// @route POST /api/admin/course/upload-pdf/:courseId
+// @access Private (admin/sub-admin with manageCourses)
+exports.uploadCoursePdf = async (req, res) => {
+  try {
+    const courseId = req.params.courseId;
+    const file = req.file;
+    if (!file) return res.status(400).json({ message: 'No file uploaded' });
+
+    // Validate mimetype again
+    if (file.mimetype !== 'application/pdf') {
+      return res.status(400).json({ message: 'Only PDF files are allowed' });
+    }
+
+    // Build URL path to serve statically via /uploads
+    // file.path is available because uploadPdf uses diskStorage
+    const savedFilename = file.filename || file.path.split(require('path').sep).pop();
+    const pdfUrl = `/uploads/pdfs/${savedFilename}`;
+
+    // Update course document
+    const course = await Course.findById(courseId);
+    if (!course) return res.status(404).json({ message: 'Course not found' });
+
+    course.pdfResource = pdfUrl;
+    course.pdfResourceName = file.originalname || savedFilename;
+    await course.save();
+
+    await ActivityLog.create({ action: 'upload_course_pdf', performedBy: req.user._id, targetType: 'Course', targetId: course._id, details: { filename: savedFilename } });
+
+    res.json({ success: true, pdfResource: pdfUrl, pdfResourceName: course.pdfResourceName });
+  } catch (err) {
+    console.error('uploadCoursePdf error', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 exports.deleteCourse = async (req, res) => {
   try {
     const courseId = req.params.id;
@@ -196,12 +232,10 @@ exports.createEnrollment = async (req, res) => {
     const existing = await Enrollment.findOne({ studentId, courseId });
     if (existing) return res.status(400).json({ message: 'Student already enrolled' });
 
-    // If admin marks as free, activate immediately and mark isFree
     const enrollmentPayload = { studentId, courseId };
     if (isFree) {
       enrollmentPayload.isFree = true;
-      enrollmentPayload.enrollmentStatus = 'active';
-      enrollmentPayload.enrolledAt = new Date();
+      enrollmentPayload.purchaseStatus = 'free';
     }
 
     const enrollment = await Enrollment.create(enrollmentPayload);
@@ -209,16 +243,22 @@ exports.createEnrollment = async (req, res) => {
     // Add student to course.studentsEnrolled
     await Course.findByIdAndUpdate(courseId, { $addToSet: { studentsEnrolled: studentId } });
 
-    // If free, also add to user's enrolledCourses so dashboard shows it immediately
-    if (isFree) {
-      const user = await User.findById(studentId);
-      if (user) {
-        const already = user.enrolledCourses.find(ec => ec.course && ec.course.toString() === courseId.toString());
-        if (!already) {
-          user.enrolledCourses.push({ course: courseId, completedLessons: [], hoursSpent: 0, completionPercentage: 0 });
-          await user.save();
-        }
+    // Also ensure the student's User.enrolledCourses subdocument contains this course
+    try {
+      const student = await User.findById(studentId);
+      if (student && !student.enrolledCourses.some(ec => ec.course.toString() === courseId.toString())) {
+        student.enrolledCourses.push({
+          course: courseId,
+          completedLessons: [],
+          hoursSpent: 0,
+          completionPercentage: 0,
+          enrollmentDate: new Date()
+        });
+        await student.save();
       }
+    } catch (uErr) {
+      // don't fail the whole operation for a user update issue - log for debugging
+      console.warn('Failed to update User.enrolledCourses after admin enrollment:', uErr.message);
     }
 
     await ActivityLog.create({ action: 'create_enrollment', performedBy: req.user._id, targetType: 'Enrollment', targetId: enrollment._id, details: { studentId, courseId, isFree: !!isFree } });

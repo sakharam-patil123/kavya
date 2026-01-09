@@ -1725,6 +1725,34 @@ export default function Courses() {
     } catch (e) {}
   }, []);
 
+  // When courseId in URL changes, fetch the course title so hero shows correct name
+  useEffect(() => {
+    const courseId = new URLSearchParams(location.search || window.location.search).get('id');
+    if (!courseId) return;
+
+    let active = true;
+    (async () => {
+      try {
+        // Try public course endpoint first (works for both paid and free courses)
+        const res = await fetch(`/api/courses/${courseId}`);
+        if (!res.ok) return;
+        const payload = await res.json();
+        // payload might be course object or { data: course }
+        const course = payload && payload.data ? payload.data : payload;
+        if (!course) return;
+        const title = course.title || course.name || '';
+        if (active && title) {
+          setEnrolledCourseTitle(title);
+          try { window.localStorage.setItem('currentCourseTitle', title); } catch (e) {}
+        }
+      } catch (err) {
+        // ignore errors
+      }
+    })();
+
+    return () => { active = false; };
+  }, [location.search]);
+
   // Active lesson player state (for Practical Applications and new modules)
   const [activeLessonVideo, setActiveLessonVideo] = useState(null);
   const [activeLessonTitle, setActiveLessonTitle] = useState("");
@@ -2008,9 +2036,9 @@ export default function Courses() {
         if (!res.ok) return;
         const course = await res.json();
         if (!course) return;
-        const url = course.resourceUrl || course.resource_url || course.resource;
+        const url = course.pdfResource || course.resourceUrl || course.resource_url || course.resource;
         if (!url) return;
-        const name = course.resourceName || course.resource_name || (url.split('/').pop() || 'resource.pdf');
+        const name = course.pdfResourceName || course.resourceName || course.resource_name || (url.split('/').pop() || 'resource.pdf');
         if (active) {
           setResources((prev) => {
             // avoid duplicates by URL or name
@@ -2284,6 +2312,19 @@ export default function Courses() {
               A comprehensive course designed to turn beginners into professional ethical hackers. Learn how to secure systems and perform real-world penetration testing using industry-standard tools and techniques.
               {" "}
             </p>
+            {
+              // Show PDF resource preview/link if available
+              (() => {
+                const pdf = (resources || []).find(r => {
+                  const u = r.url || r.resourceUrl || r.dataURL || r.pdfResource || '';
+                  if (!u) return false;
+                  return u.toLowerCase().endsWith('.pdf') || (r.type && r.type === 'pdf');
+                });
+                if (!pdf) return null;
+                // const href = pdf.url || pdf.resourceUrl || pdf.dataURL || pdf.pdfResource;
+                
+              })()
+            }
             <div className="d-flex gap-2 flex-wrap">
               <button
                 className="btn btn-learn d-flex align-items-center gap-2"

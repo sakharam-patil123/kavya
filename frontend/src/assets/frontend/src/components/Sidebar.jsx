@@ -43,6 +43,7 @@ function Sidebar({ isOpen, setIsOpen }) {
     ...(userRole !== 'instructor' && userRole !== 'admin' && userRole !== 'sub-admin' && userRole !== 'parent' ? [
       { path: "/dashboard", label: "Dashboard", icon: <FiHome /> },
       { path: "/courses", label: "Courses", icon: <FiBookOpen /> },
+      { path: "/student/enrolled-courses", label: "Enrolled Courses", icon: <FiBookOpen /> },
     ] : []),
     
     // Admin items
