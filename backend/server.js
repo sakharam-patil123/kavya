@@ -100,9 +100,10 @@ const studentRoutesFile = require('./routes/studentRoutes');
 const enrollmentRoutes = require('./routes/enrollmentRoutes');
 const parentRoutes = require('./routes/parentRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const searchRoutes = require('./routes/searchRoutes');
-const uploadRoutes = require('./routes/uploadRoutes');
+ const uploadRoutes = require('./routes/uploadRoutes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -124,7 +125,7 @@ app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/parents', parentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/schedule', scheduleRoutes);
-app.use('/api/uploads', uploadRoutes);
+// app.use('/api/uploads', uploadRoutes);
 
 // Search
 app.use('/api/search', searchRoutes);

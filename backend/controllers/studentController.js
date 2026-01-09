@@ -1,7 +1,11 @@
 const User = require('../models/userModel');
 const Course = require('../models/courseModel');
+const Enrollment = require('../models/enrollmentModel');
 const Achievement = require('../models/achievementModel');
 const Lesson = require('../models/lessonModel');
+const Event = require('../models/eventModel');
+const Announcement = require('../models/announcementModel');
+const Notification = require('../models/notificationModel');
 
 // @desc    Get student dashboard data
 // @route   GET /api/student/dashboard
@@ -46,6 +50,133 @@ exports.getStudentDashboard = async (req, res) => {
       }
     });
   } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get a time-sorted dashboard feed for the logged-in student
+// @route   GET /api/student/dashboard-feed
+// @access  Private/Student
+exports.getDashboardFeed = async (req, res) => {
+  try {
+    const limit = Number(req.query.limit) || 50;
+    const since = req.query.since ? new Date(req.query.since) : null;
+
+    // Load student's enrolled course ids
+    const student = await User.findById(req.user._id).select('enrolledCourses').populate({ path: 'enrolledCourses.course', select: '_id' });
+    const enrolledCourseIds = (student.enrolledCourses || []).map(ec => ec.course && ec.course._id).filter(Boolean);
+
+    // Prepare query filters
+    const now = new Date();
+
+    // Live lectures: events currently in progress OR with status 'In Progress'
+    const liveFilter = {
+      status: 'In Progress',
+      $or: [
+        { enrolledStudents: req.user._id },
+        { course: { $in: enrolledCourseIds } }
+      ]
+    };
+
+    // Upcoming classes: scheduled in future and relevant to student
+    const upcomingFilter = {
+      status: 'Scheduled',
+      date: { $gte: now },
+      $or: [
+        { enrolledStudents: req.user._id },
+        { course: { $in: enrolledCourseIds } }
+      ]
+    };
+
+    if (since) {
+      // Narrow to recently created/updated resources
+      liveFilter.updatedAt = { $gte: since };
+      upcomingFilter.updatedAt = { $gte: since };
+    }
+
+    const Event = require('../models/eventModel');
+    const Notification = require('../models/notificationModel');
+    const Announcement = require('../models/announcementModel');
+
+    // Fetch items in parallel
+    const [liveEvents, upcomingEvents, notifications, announcements] = await Promise.all([
+      Event.find(liveFilter).populate('instructor', 'fullName').sort({ date: 1 }).limit(limit),
+      Event.find(upcomingFilter).populate('instructor', 'fullName').sort({ date: 1 }).limit(limit),
+      Notification.find({ userId: req.user._id, ...(since ? { createdAt: { $gte: since } } : {}) }).sort({ createdAt: -1 }).limit(limit),
+      Announcement.find({ targetRole: { $in: ['all', 'students'] }, ...(since ? { createdAt: { $gte: since } } : {}) }).sort({ createdAt: -1 }).limit(limit)
+    ]);
+
+    // Map to unified feed items
+    const feed = [];
+
+    liveEvents.forEach(ev => {
+      feed.push({
+        id: ev._id,
+        source: 'event',
+        subtype: ev.type,
+        title: ev.title,
+        date: ev.date,
+        startTime: ev.startTime,
+        endTime: ev.endTime,
+        status: 'Live',
+        instructor: ev.instructor ? ev.instructor.fullName : null,
+        course: ev.course,
+        sortDate: new Date(), // surface live as most recent
+        raw: ev
+      });
+    });
+
+    upcomingEvents.forEach(ev => {
+      feed.push({
+        id: ev._id,
+        source: 'event',
+        subtype: ev.type,
+        title: ev.title,
+        date: ev.date,
+        startTime: ev.startTime,
+        endTime: ev.endTime,
+        status: 'Upcoming',
+        instructor: ev.instructor ? ev.instructor.fullName : null,
+        course: ev.course,
+        sortDate: ev.date || ev.createdAt,
+        raw: ev
+      });
+    });
+
+    notifications.forEach(n => {
+      feed.push({
+        id: n._id,
+        source: 'notification',
+        title: n.title,
+        message: n.message,
+        status: 'Notification',
+        date: n.createdAt,
+        sortDate: n.createdAt,
+        read: !n.unread,
+        route: n.route,
+        raw: n
+      });
+    });
+
+    announcements.forEach(a => {
+      feed.push({
+        id: a._id,
+        source: 'announcement',
+        title: a.title,
+        message: a.message,
+        status: 'Announcement',
+        date: a.createdAt,
+        sortDate: a.createdAt,
+        raw: a
+      });
+    });
+
+    // Sort unified feed by sortDate desc and limit
+    const sorted = feed.sort((a, b) => new Date(b.sortDate) - new Date(a.sortDate)).slice(0, limit);
+
+    res.json({ success: true, count: sorted.length, data: sorted });
+  } catch (error) {
+    console.error('Error building dashboard feed:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -360,6 +491,79 @@ exports.getStudentProfile = async (req, res) => {
       success: true,
       data: student
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get all enrolled courses for logged-in student (paid + admin-assigned free)
+// @route   GET /api/student/enrolled-courses
+// @access  Private/Student
+exports.getEnrolledCourses = async (req, res) => {
+  try {
+    const studentId = req.user._id;
+
+    // Fetch enrollments that are either paid (purchaseStatus==='paid' or have a paymentId)
+    // or explicitly marked free by admin (isFree === true)
+    const enrollments = await Enrollment.find({
+      studentId,
+      $or: [ { isFree: true }, { purchaseStatus: 'paid' }, { paymentId: { $ne: null } } ]
+    }).populate({ path: 'courseId', populate: { path: 'instructor', select: 'fullName' } });
+
+    const map = {};
+
+    // Include enrollments from Enrollment collection
+    enrollments.forEach(e => {
+      if (!e.courseId) return;
+      const id = e.courseId._id.toString();
+      map[id] = {
+        _id: e.courseId._id,
+        title: e.courseId.title,
+        thumbnail: e.courseId.thumbnail,
+        instructor: e.courseId.instructor,
+        accessType: (e.isFree || e.purchaseStatus === 'free') ? 'Free' : 'Paid',
+        progress: {
+          completionPercentage: e.progressPercentage || (e.completed ? 100 : 0),
+          hoursSpent: e.watchHours || 0
+        }
+      };
+    });
+
+    // Also include entries from User.enrolledCourses (progress stored there)
+    const student = await User.findById(studentId).populate({ path: 'enrolledCourses.course', populate: { path: 'instructor', select: 'fullName' } });
+    (student.enrolledCourses || []).forEach(ec => {
+      if (!ec.course) return;
+      const id = ec.course._id.toString();
+      if (!map[id]) {
+        // If not present in Enrollment collection, assume it's a paid enrollment (student-driven)
+        map[id] = {
+          _id: ec.course._id,
+          title: ec.course.title,
+          thumbnail: ec.course.thumbnail,
+          instructor: ec.course.instructor,
+          accessType: 'Paid',
+          progress: {
+            completionPercentage: ec.completionPercentage || 0,
+            hoursSpent: ec.hoursSpent || 0
+          }
+        };
+      } else {
+        // Merge progress details (prefer User progress values)
+        map[id].progress = {
+          completionPercentage: ec.completionPercentage || map[id].progress.completionPercentage || 0,
+          hoursSpent: ec.hoursSpent || map[id].progress.hoursSpent || 0
+        };
+      }
+    });
+
+    const courses = Object.values(map);
+
+    // Friendly empty state
+    if (courses.length === 0) {
+      return res.json({ success: true, count: 0, data: [] });
+    }
+
+    res.json({ success: true, count: courses.length, data: courses });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
