@@ -196,12 +196,10 @@ exports.createEnrollment = async (req, res) => {
     const existing = await Enrollment.findOne({ studentId, courseId });
     if (existing) return res.status(400).json({ message: 'Student already enrolled' });
 
-    // If admin marks as free, activate immediately and mark isFree
     const enrollmentPayload = { studentId, courseId };
     if (isFree) {
       enrollmentPayload.isFree = true;
-      enrollmentPayload.enrollmentStatus = 'active';
-      enrollmentPayload.enrolledAt = new Date();
+      enrollmentPayload.purchaseStatus = 'free';
     }
 
     const enrollment = await Enrollment.create(enrollmentPayload);
@@ -209,16 +207,22 @@ exports.createEnrollment = async (req, res) => {
     // Add student to course.studentsEnrolled
     await Course.findByIdAndUpdate(courseId, { $addToSet: { studentsEnrolled: studentId } });
 
-    // If free, also add to user's enrolledCourses so dashboard shows it immediately
-    if (isFree) {
-      const user = await User.findById(studentId);
-      if (user) {
-        const already = user.enrolledCourses.find(ec => ec.course && ec.course.toString() === courseId.toString());
-        if (!already) {
-          user.enrolledCourses.push({ course: courseId, completedLessons: [], hoursSpent: 0, completionPercentage: 0 });
-          await user.save();
-        }
+    // Also ensure the student's User.enrolledCourses subdocument contains this course
+    try {
+      const student = await User.findById(studentId);
+      if (student && !student.enrolledCourses.some(ec => ec.course.toString() === courseId.toString())) {
+        student.enrolledCourses.push({
+          course: courseId,
+          completedLessons: [],
+          hoursSpent: 0,
+          completionPercentage: 0,
+          enrollmentDate: new Date()
+        });
+        await student.save();
       }
+    } catch (uErr) {
+      // don't fail the whole operation for a user update issue - log for debugging
+      console.warn('Failed to update User.enrolledCourses after admin enrollment:', uErr.message);
     }
 
     await ActivityLog.create({ action: 'create_enrollment', performedBy: req.user._id, targetType: 'Enrollment', targetId: enrollment._id, details: { studentId, courseId, isFree: !!isFree } });

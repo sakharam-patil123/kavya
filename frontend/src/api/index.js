@@ -53,6 +53,12 @@ export async function createEvent(payload) {
   return res.json();
 }
 
+// ===== Dashboard Feed =====
+export async function getDashboardFeed() {
+  const res = await fetch(`${BASE}/student/dashboard-feed`, { headers: authHeaders() });
+  return res.json();
+}
+
 export async function getProfile() {
   const res = await fetch(`${BASE}/users/profile`, { headers: authHeaders() });
   return res.json();
@@ -205,6 +211,7 @@ export async function getDashboardFeed(limit = 50, since = null) {
   const res = await fetch(url, { headers: authHeaders() });
   return res.json();
 }
+
 
 export default {
   getCourses,
