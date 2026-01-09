@@ -104,7 +104,6 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 
-
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
