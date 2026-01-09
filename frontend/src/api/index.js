@@ -171,6 +171,27 @@ export async function search(query) {
   return res.json();
 }
 
+// ===== Course-specific Search =====
+export async function searchCourses(query) {
+  const qRaw = (query || '').trim();
+  if (!qRaw) return { success: false, query: qRaw, results: [], message: 'Course Not Available' };
+
+  // Count sentences to decide whether to use POST for long-form searches
+  const sentences = (qRaw.match(/[^.!?\n]+[.!?\n]*/g) || []).map(s => s.trim()).filter(Boolean);
+  const usePost = qRaw.length > 500 || qRaw.includes('\n') || sentences.length > 1;
+
+  if (usePost) {
+    // Use POST to handle large payloads and long-form queries
+    const res = await fetch(`${BASE}/search/courses`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ q: qRaw }) });
+    return res.json();
+  }
+
+  // Short single-line query — use GET
+  const q = encodeURIComponent(qRaw);
+  const res = await fetch(`${BASE}/search/courses?q=${q}`, { headers: authHeaders() });
+  return res.json();
+}
+
 export async function getUnreadNotificationCount() {
   const res = await fetch(`${BASE}/notifications/count/unread`, { headers: authHeaders() });
   return res.json();
