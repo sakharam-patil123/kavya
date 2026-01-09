@@ -224,3 +224,35 @@
     font-size: 1.4rem;
   }
 }
+
+/* Ensure report panel text is black when global dark mode is enabled */
+:global(.dark) .reportCard,
+:global(.dark) .dashedBox {
+  color: #000 !important;
+}
+
+/* Ensure all left-panel text (including inline-styled messages) is black in dark mode */
+:global(.dark) .leftCardWrap,
+:global(.dark) .leftCardWrap * {
+  color: #000 !important;
+}
+
+/* Prefer explicit controls: card title, buttons, student list */
+:global(.dark) .cardTitle,
+:global(.dark) .linkButton,
+:global(.dark) .showButton,
+:global(.dark) .unlinkButton,
+:global(.dark) .studentEmail {
+  color: #000 !important;
+}
+
+:global(.dark) .input::placeholder {
+  color: #000 !important;
+}
+
+/* Make Link Student and Show report button text white in dark mode */
+:global(.dark) .linkButton,
+:global(.dark) .showButton {
+  color: #fff !important;
+}
+
