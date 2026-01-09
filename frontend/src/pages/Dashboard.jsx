@@ -27,15 +27,10 @@ function Dashboard() {
   const coursesContainerRef = useRef(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
 
-  // ANNOUNCEMENTS
-  const [announcements] = useState([
-    { text: "New batch starting soon", link: "https://example.com/batch" },
-    { text: "Live classes updated", link: "https://example.com/live" },
-    { text: "AI mentor improvements released", link: "https://example.com/ai" },
-    { text: "Exams scheduled for next week", link: "https://example.com/exams" },
-  ]);
+  // Dashboard feed (live lectures, upcoming classes, notifications, announcements)
+  const [dashboardFeed, setDashboardFeed] = useState([]);
 
-  // UPCOMING CLASSES
+  // UPCOMING CLASSES - fallback/skeleton until feed loads
   const upcoming = [
     { title: "Mathematics", date: "15 January 2026, 1:00 PM" },
     { title: "Physics", date: "20 February 2026, 10:00 AM" },
@@ -115,6 +110,7 @@ function Dashboard() {
         }
 
         // Fetch reminders from backend notifications
+        let remindersMap = {};
         try {
           const notificationsRes = await fetch('/api/notifications', {
             headers: {
@@ -127,7 +123,7 @@ function Dashboard() {
             const notifications = notificationsData.notifications || notificationsData || [];
             
             // Extract reminder event titles and set them in state
-            const remindersMap = {};
+            remindersMap = {};
             notifications.forEach(notif => {
               try {
                 // Extract from route if it contains eventTitle parameter
@@ -264,12 +260,49 @@ function Dashboard() {
           }));
           setLeaderboard(topThree);
         }
+
+        // Fetch dashboard feed (live/upcoming/notifications/announcements)
+        try {
+          const feedRes = await fetch('/api/student/dashboard-feed', {
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            }
+          });
+          if (feedRes.ok) {
+            const feedData = await feedRes.json();
+            const rawFeed = feedData.feed || [];
+            // Mark items that the student has set reminders for
+            const decorated = rawFeed.map(it => ({
+              ...it,
+              route: it.route || null,
+              createdAt: it.createdAt || it.date || new Date().toISOString(),
+              reminded: !!remindersMap[it.title]
+            }));
+            setDashboardFeed(decorated);
+          } else {
+            console.warn('Failed to fetch dashboard feed:', feedRes.status);
+          }
+        } catch (err) {
+          console.warn('Failed to fetch dashboard feed:', err);
+        }
       } catch (err) {
         console.warn('Could not load dashboard data', err);
       }
     }
     
     loadProfile();
+
+    // Poll the feed periodically (near-real-time)
+    const feedPollInterval = setInterval(() => {
+      console.log('🔄 Dashboard: Polling dashboard feed...');
+      fetch('/api/student/dashboard-feed', { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => d && setDashboardFeed(d.feed || []))
+        .catch(e => console.warn('Dashboard feed poll error:', e));
+    }, 30000); // 30s
+
+
 
     // Re-fetch data when window regains focus (e.g., after enrolling in another tab)
     const handleFocus = () => {
@@ -288,10 +321,8 @@ function Dashboard() {
     console.log('✅ Dashboard: Event listeners registered');
     console.log('✅ Dashboard: Ready to receive enrollmentUpdated events');
 
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('enrollmentUpdated', handleEnrollmentUpdate);
-    };
+    // Note: listeners are removed by the single cleanup below (to avoid duplication)
+    
   }, []);
 
   // ✅ Handle setting reminder for upcoming class
@@ -324,7 +355,21 @@ function Dashboard() {
           ...prev,
           [classTitle]: true
         }));
-
+        // Update dashboard feed to reflect reminded state and add a transient notification headline
+        setDashboardFeed(prev => {
+          const updated = prev.map(i => i.title === classTitle ? { ...i, reminded: true } : i);
+          // Also add a short-lived notification to the top
+          const notice = {
+            id: `reminder-${Date.now()}`,
+            title: `Reminder set for ${classTitle}`,
+            message: `We'll remind you before ${classTitle}.`,
+            date: new Date().toISOString(),
+            status: 'Notification',
+            source: 'notification',
+            createdAt: new Date().toISOString()
+          };
+          return [notice, ...updated];
+        });
         // Dispatch event so Schedule page refreshes reminders
         window.dispatchEvent(new Event('reminderSet'));
 
@@ -349,14 +394,56 @@ function Dashboard() {
         <StatCard title="Achievements" value={achievementsCount} color1="#46BA7D" color2="#3CB49F" IconComponent={LuAward} />
       </div>
 
-      {/* ============ ANNOUNCEMENTS SCROLL ============ */}
+      {/* ============ MARQUEE / TICKER (shows concise headlines) ============ */}
       <div className="latest-announcement" style={{ background: "#d9e8feff", padding: "12px 0", margin: "20px 0", borderRadius: "10px", overflow: "hidden", whiteSpace: "nowrap" }}>
-        <div style={{ display: "inline-block", paddingLeft: "100%", animation: "scroll-left 15s linear infinite", fontSize: "16px", fontWeight: "500", color: "#1A365D" }}>
-          {announcements.map((a, index) => (
-            <a key={index} href={a.link} target="_blank" rel="noopener noreferrer" style={{ marginRight: "30px", color: "#1A365D", textDecoration: "none", cursor: "pointer" }}>
-              {a.text}
-            </a>
-          ))}
+        <div style={{ display: "inline-block", paddingLeft: "100%", animation: "scroll-left 20s linear infinite", fontSize: "16px", fontWeight: "500", color: "#1A365D" }}>
+          {dashboardFeed.length > 0 ? (
+            dashboardFeed.slice(0, 12).map((it, idx) => (
+              <a
+                key={it.id || idx}
+                href={it.route || '#'}
+                onClick={(e) => { e.preventDefault(); if (it.route) navigate(it.route); }}
+                style={{ marginRight: "30px", color: "#1A365D", textDecoration: "none", cursor: "pointer" }}
+              >
+                {it.status === 'Live' ? 'LIVE: ' : it.status === 'Announcement' ? 'ANNOUNCEMENT: ' : it.status === 'Notification' ? 'NOTICE: ' : (it.status ? it.status + ': ' : '')}
+                {it.title}
+              </a>
+            ))
+          ) : (
+            <span style={{ color: '#1A365D', marginLeft: '12px' }}>No updates available right now.</span>
+          )}
+        </div>
+      </div>
+
+      {/* ============ DASHBOARD HORIZONTAL FEED ============ */}
+      <div className="dashboard-feed" style={{ padding: "12px 0", margin: "20px 0" }}>
+        <div className="feed-container" style={{ display: 'flex', gap: '12px', overflowX: 'auto', padding: '8px' }}>
+          {dashboardFeed.length > 0 ? (
+            dashboardFeed.map(item => (
+              <div key={item.id} className="feed-card" style={{ minWidth: '260px', background: '#fff', borderRadius: '12px', padding: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <strong style={{ fontSize: '15px', color: '#1A365D' }}>{item.title}</strong>
+                    {item.reminded && <span className="reminder-badge" style={{ background: '#4CAF50', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontSize: '11px' }}>Reminded</span>}
+                  </div>
+                  <span style={{ fontSize: '12px', color: '#718096' }}>{item.status}</span>
+                </div>
+                {item.instructor && <div style={{ fontSize: '13px', color: '#2b6cb0', marginBottom: '6px' }}>Instructor: {item.instructor}</div>}
+                {item.date && <div style={{ fontSize: '13px', color: '#333', marginBottom: '8px' }}>{new Date(item.date).toLocaleString()}</div>}
+                {item.message && <div style={{ fontSize: '13px', color: '#4a5568', marginBottom: '8px' }}>{item.message}</div>}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {item.source === 'event' && item.route && (
+                    <button onClick={() => navigate(item.route)} className="view-event-btn">View Event</button>
+                  )}
+                  {item.source === 'notification' && (
+                    <button onClick={() => alert(item.message || item.title)} className="view-event-btn">Show</button>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div style={{ color: '#718096' }}>No updates available right now.</div>
+          )}
         </div>
       </div>
 

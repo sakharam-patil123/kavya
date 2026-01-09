@@ -2,6 +2,9 @@ const User = require('../models/userModel');
 const Course = require('../models/courseModel');
 const Achievement = require('../models/achievementModel');
 const Lesson = require('../models/lessonModel');
+const Event = require('../models/eventModel');
+const Announcement = require('../models/announcementModel');
+const Notification = require('../models/notificationModel');
 
 // @desc    Get student dashboard data
 // @route   GET /api/student/dashboard
@@ -47,6 +50,117 @@ exports.getStudentDashboard = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get student dashboard feed (live lectures, upcoming classes, notifications, announcements)
+// @route   GET /api/student/dashboard-feed
+// @access  Private/Student
+exports.getStudentDashboardFeed = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Fetch student's enrolled course ids to scope events
+    const student = await User.findById(userId).select('enrolledCourses');
+    const courseIds = (student.enrolledCourses || []).map(ec => (ec.course ? ec.course.toString() : null)).filter(Boolean);
+
+    // Live lectures (status In Progress) relevant to the student
+    const liveEvents = await Event.find({
+      status: 'In Progress',
+      $or: [
+        { instructor: userId },
+        { enrolledStudents: userId },
+        { course: { $in: courseIds } }
+      ]
+    }).populate('instructor', 'fullName').limit(20);
+
+    // Upcoming events (Scheduled and in future) relevant to the student
+    const upcomingEvents = await Event.find({
+      date: { $gte: new Date() },
+      status: 'Scheduled',
+      $or: [
+        { instructor: userId },
+        { enrolledStudents: userId },
+        { course: { $in: courseIds } }
+      ]
+    }).populate('instructor', 'fullName').sort({ date: 1 }).limit(20);
+
+    // Notifications for this user
+    const notifications = await Notification.find({ userId }).sort({ createdAt: -1 }).limit(40);
+
+    // Announcements for students / all
+    const announcements = await Announcement.find({ targetRole: { $in: ['all', 'students'] } }).sort({ createdAt: -1 }).limit(20);
+
+    // Normalize into common feed items
+    const feed = [];
+
+    liveEvents.forEach(e => {
+      feed.push({
+        id: e._id,
+        title: e.title,
+        date: e.date,
+        status: 'Live',
+        instructor: e.instructor?.fullName || null,
+        source: 'event',
+        eventType: e.type,
+        route: `/events/${e._id}`,
+        createdAt: e.updatedAt || e.createdAt
+      });
+    });
+
+    upcomingEvents.forEach(e => {
+      feed.push({
+        id: e._id,
+        title: e.title,
+        date: e.date,
+        status: 'Upcoming',
+        instructor: e.instructor?.fullName || null,
+        source: 'event',
+        eventType: e.type,
+        route: `/events/${e._id}`,
+        createdAt: e.createdAt
+      });
+    });
+
+    notifications.forEach(n => {
+      feed.push({
+        id: n._id,
+        title: n.title,
+        message: n.message,
+        date: n.createdAt,
+        status: 'Notification',
+        source: 'notification',
+        route: n.route,
+        createdAt: n.createdAt
+      });
+    });
+
+    announcements.forEach(a => {
+      feed.push({
+        id: a._id,
+        title: a.title,
+        message: a.message,
+        date: a.createdAt,
+        status: 'Announcement',
+        source: 'announcement',
+        route: `/announcements/${a._id}`,
+        createdAt: a.createdAt
+      });
+    });
+
+    // Sort feed: Live first, then by timestamp (most recent first)
+    const getTime = item => {
+      if (item.status === 'Live') return 1e18; // push live to top
+      if (item.date) return new Date(item.date).getTime();
+      return new Date(item.createdAt).getTime();
+    };
+
+    feed.sort((a, b) => getTime(b) - getTime(a));
+
+    res.status(200).json({ success: true, feed });
+  } catch (error) {
+    console.error('Error building dashboard feed:', error);
+    res.status(500).json({ success: false, message: 'Error building dashboard feed' });
   }
 };
 

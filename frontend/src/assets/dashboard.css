@@ -48,6 +48,73 @@
   }
 }
 
+/* Horizontal feed cards */
+.dashboard-feed {
+  width: 100%;
+}
+
+.feed-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.feed-container::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+  border-radius: 8px;
+}
+
+.feed-card {
+  min-width: 260px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+
+/* Marquee / ticker */
+.latest-announcement {
+  background: #d9e8feff;
+  padding: 12px 0;
+  margin: 20px 0;
+  border-radius: 10px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.latest-announcement a {
+  color: #1A365D;
+  text-decoration: none;
+  margin-right: 24px;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .feed-card {
+    min-width: 220px;
+  }
+  .latest-announcement {
+    font-size: 14px;
+  }
+}
+
+.reminder-badge {
+  display: inline-block;
+  font-weight: 600;
+}
+
+.view-event-btn {
+  background: #397ACF;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.view-event-btn:hover {
+  background: #2b6cb0;
+}
+
 /* ============ MAIN GRID ============ */
 .main-grid {
   display: grid;
