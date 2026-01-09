@@ -4,6 +4,7 @@ const {
   getStudentDashboard,
   getStudentCourses,
   getStudentCourse,
+  getEnrolledCourses,
   completeLesson,
   getStudentAchievements,
   getStudentActivity,
@@ -28,6 +29,7 @@ router.put('/profile', updateStudentProfile);
 // Courses
 router.get('/courses', getStudentCourses);
 router.get('/courses/:courseId', getStudentCourse);
+router.get('/enrolled-courses', getEnrolledCourses);
 router.post('/enroll/:courseId', enrollCourse);
 
 // Lesson completion

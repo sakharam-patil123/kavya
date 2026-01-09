@@ -10,6 +10,10 @@ const enrollmentSchema = new mongoose.Schema({
   lastAccessed: { type: Date },
   grade: { type: String },
   feedback: { type: String },
+  // Whether this enrollment was granted as a free access by admin
+  isFree: { type: Boolean, default: false },
+  // Purchase status: 'paid' when student purchased, 'free' when admin-assigned free
+  purchaseStatus: { type: String, enum: ['paid', 'free', 'pending'], default: 'pending' },
   enrollmentStatus: { 
     type: String, 
     enum: ['pending', 'active', 'completed'], 

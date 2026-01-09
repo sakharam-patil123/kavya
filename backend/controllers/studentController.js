@@ -1,5 +1,6 @@
 const User = require('../models/userModel');
 const Course = require('../models/courseModel');
+const Enrollment = require('../models/enrollmentModel');
 const Achievement = require('../models/achievementModel');
 const Lesson = require('../models/lessonModel');
 
@@ -360,6 +361,79 @@ exports.getStudentProfile = async (req, res) => {
       success: true,
       data: student
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Get all enrolled courses for logged-in student (paid + admin-assigned free)
+// @route   GET /api/student/enrolled-courses
+// @access  Private/Student
+exports.getEnrolledCourses = async (req, res) => {
+  try {
+    const studentId = req.user._id;
+
+    // Fetch enrollments that are either paid (purchaseStatus==='paid' or have a paymentId)
+    // or explicitly marked free by admin (isFree === true)
+    const enrollments = await Enrollment.find({
+      studentId,
+      $or: [ { isFree: true }, { purchaseStatus: 'paid' }, { paymentId: { $ne: null } } ]
+    }).populate({ path: 'courseId', populate: { path: 'instructor', select: 'fullName' } });
+
+    const map = {};
+
+    // Include enrollments from Enrollment collection
+    enrollments.forEach(e => {
+      if (!e.courseId) return;
+      const id = e.courseId._id.toString();
+      map[id] = {
+        _id: e.courseId._id,
+        title: e.courseId.title,
+        thumbnail: e.courseId.thumbnail,
+        instructor: e.courseId.instructor,
+        accessType: (e.isFree || e.purchaseStatus === 'free') ? 'Free' : 'Paid',
+        progress: {
+          completionPercentage: e.progressPercentage || (e.completed ? 100 : 0),
+          hoursSpent: e.watchHours || 0
+        }
+      };
+    });
+
+    // Also include entries from User.enrolledCourses (progress stored there)
+    const student = await User.findById(studentId).populate({ path: 'enrolledCourses.course', populate: { path: 'instructor', select: 'fullName' } });
+    (student.enrolledCourses || []).forEach(ec => {
+      if (!ec.course) return;
+      const id = ec.course._id.toString();
+      if (!map[id]) {
+        // If not present in Enrollment collection, assume it's a paid enrollment (student-driven)
+        map[id] = {
+          _id: ec.course._id,
+          title: ec.course.title,
+          thumbnail: ec.course.thumbnail,
+          instructor: ec.course.instructor,
+          accessType: 'Paid',
+          progress: {
+            completionPercentage: ec.completionPercentage || 0,
+            hoursSpent: ec.hoursSpent || 0
+          }
+        };
+      } else {
+        // Merge progress details (prefer User progress values)
+        map[id].progress = {
+          completionPercentage: ec.completionPercentage || map[id].progress.completionPercentage || 0,
+          hoursSpent: ec.hoursSpent || map[id].progress.hoursSpent || 0
+        };
+      }
+    });
+
+    const courses = Object.values(map);
+
+    // Friendly empty state
+    if (courses.length === 0) {
+      return res.json({ success: true, count: 0, data: [] });
+    }
+
+    res.json({ success: true, count: courses.length, data: courses });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
