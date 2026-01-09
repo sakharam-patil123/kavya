@@ -50,6 +50,133 @@ exports.getStudentDashboard = async (req, res) => {
   }
 };
 
+// @desc    Get a time-sorted dashboard feed for the logged-in student
+// @route   GET /api/student/dashboard-feed
+// @access  Private/Student
+exports.getDashboardFeed = async (req, res) => {
+  try {
+    const limit = Number(req.query.limit) || 50;
+    const since = req.query.since ? new Date(req.query.since) : null;
+
+    // Load student's enrolled course ids
+    const student = await User.findById(req.user._id).select('enrolledCourses').populate({ path: 'enrolledCourses.course', select: '_id' });
+    const enrolledCourseIds = (student.enrolledCourses || []).map(ec => ec.course && ec.course._id).filter(Boolean);
+
+    // Prepare query filters
+    const now = new Date();
+
+    // Live lectures: events currently in progress OR with status 'In Progress'
+    const liveFilter = {
+      status: 'In Progress',
+      $or: [
+        { enrolledStudents: req.user._id },
+        { course: { $in: enrolledCourseIds } }
+      ]
+    };
+
+    // Upcoming classes: scheduled in future and relevant to student
+    const upcomingFilter = {
+      status: 'Scheduled',
+      date: { $gte: now },
+      $or: [
+        { enrolledStudents: req.user._id },
+        { course: { $in: enrolledCourseIds } }
+      ]
+    };
+
+    if (since) {
+      // Narrow to recently created/updated resources
+      liveFilter.updatedAt = { $gte: since };
+      upcomingFilter.updatedAt = { $gte: since };
+    }
+
+    const Event = require('../models/eventModel');
+    const Notification = require('../models/notificationModel');
+    const Announcement = require('../models/announcementModel');
+
+    // Fetch items in parallel
+    const [liveEvents, upcomingEvents, notifications, announcements] = await Promise.all([
+      Event.find(liveFilter).populate('instructor', 'fullName').sort({ date: 1 }).limit(limit),
+      Event.find(upcomingFilter).populate('instructor', 'fullName').sort({ date: 1 }).limit(limit),
+      Notification.find({ userId: req.user._id, ...(since ? { createdAt: { $gte: since } } : {}) }).sort({ createdAt: -1 }).limit(limit),
+      Announcement.find({ targetRole: { $in: ['all', 'students'] }, ...(since ? { createdAt: { $gte: since } } : {}) }).sort({ createdAt: -1 }).limit(limit)
+    ]);
+
+    // Map to unified feed items
+    const feed = [];
+
+    liveEvents.forEach(ev => {
+      feed.push({
+        id: ev._id,
+        source: 'event',
+        subtype: ev.type,
+        title: ev.title,
+        date: ev.date,
+        startTime: ev.startTime,
+        endTime: ev.endTime,
+        status: 'Live',
+        instructor: ev.instructor ? ev.instructor.fullName : null,
+        course: ev.course,
+        sortDate: new Date(), // surface live as most recent
+        raw: ev
+      });
+    });
+
+    upcomingEvents.forEach(ev => {
+      feed.push({
+        id: ev._id,
+        source: 'event',
+        subtype: ev.type,
+        title: ev.title,
+        date: ev.date,
+        startTime: ev.startTime,
+        endTime: ev.endTime,
+        status: 'Upcoming',
+        instructor: ev.instructor ? ev.instructor.fullName : null,
+        course: ev.course,
+        sortDate: ev.date || ev.createdAt,
+        raw: ev
+      });
+    });
+
+    notifications.forEach(n => {
+      feed.push({
+        id: n._id,
+        source: 'notification',
+        title: n.title,
+        message: n.message,
+        status: 'Notification',
+        date: n.createdAt,
+        sortDate: n.createdAt,
+        read: !n.unread,
+        route: n.route,
+        raw: n
+      });
+    });
+
+    announcements.forEach(a => {
+      feed.push({
+        id: a._id,
+        source: 'announcement',
+        title: a.title,
+        message: a.message,
+        status: 'Announcement',
+        date: a.createdAt,
+        sortDate: a.createdAt,
+        raw: a
+      });
+    });
+
+    // Sort unified feed by sortDate desc and limit
+    const sorted = feed.sort((a, b) => new Date(b.sortDate) - new Date(a.sortDate)).slice(0, limit);
+
+    res.json({ success: true, count: sorted.length, data: sorted });
+  } catch (error) {
+    console.error('Error building dashboard feed:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Get student's courses
 // @route   GET /api/student/courses
 // @access  Private/Student

@@ -22,6 +22,7 @@ import AdminDashboard from './pages/Admin/AdminDashboard';
 import AdminStudents from './pages/Admin/AdminStudents';
 import AdminCourses from './pages/Admin/AdminCourses';
 import AdminEnrollments from './pages/Admin/AdminEnrollments';
+import AdminNotes from './pages/Admin/AdminNotes';
 import AdminSettings from './pages/Admin/AdminSettings';
 // Instructor Pages
 import InstructorDashboard from './pages/Instructor/InstructorDashboard';
@@ -34,6 +35,7 @@ import StudentDashboard from './pages/Student/StudentDashboard';
 import StudentCourses from './pages/Student/StudentCourses';
 import StudentAchievements from './pages/Student/StudentAchievements';
 import StudentActivity from './pages/Student/StudentActivity';
+import StudentNotes from './pages/Student/StudentNotes';
 // Parent Pages
 import StudentReport from './pages/Parent/StudentReport';
 
@@ -87,6 +89,7 @@ function Layout() {
           <Route path="/admin/students" element={<ProtectedRoute requireAdmin={true}><AdminStudents /></ProtectedRoute>} />
           <Route path="/admin/courses" element={<ProtectedRoute requireAdmin={true}><AdminCourses /></ProtectedRoute>} />
           <Route path="/admin/enrollments" element={<ProtectedRoute requireAdmin={true}><AdminEnrollments /></ProtectedRoute>} />
+          <Route path="/admin/notes" element={<ProtectedRoute requireAdmin={true}><AdminNotes /></ProtectedRoute>} />
           <Route path="/admin/settings" element={<ProtectedRoute requireAdmin={true}><AdminSettings /></ProtectedRoute>} />
 
           {/* Instructor Routes */}
@@ -101,6 +104,7 @@ function Layout() {
           <Route path="/student/courses" element={<ProtectedRoute requireRole="student"><StudentCourses /></ProtectedRoute>} />
           <Route path="/student/achievements" element={<ProtectedRoute requireRole="student"><StudentAchievements /></ProtectedRoute>} />
           <Route path="/student/activity" element={<ProtectedRoute requireRole="student"><StudentActivity /></ProtectedRoute>} />
+          <Route path="/student/notes" element={<ProtectedRoute requireRole="student"><StudentNotes /></ProtectedRoute>} />
 
           {/* Public Routes */}
           <Route path="/dashboard" element={<Dashboard />} />

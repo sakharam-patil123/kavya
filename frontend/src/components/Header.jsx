@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { IoLogOutOutline, IoPersonOutline } from "react-icons/io5";
-import { FiMoon, FiSun } from "react-icons/fi";
+import { FiMoon, FiSun, FiSearch } from "react-icons/fi"; 
 import notification from "../assets/notification.png";
 import profile from "../assets/profile.png";
 import avatarFemale from "../assets/avatar-female.svg";
@@ -17,6 +17,349 @@ function Header({ onToggleSidebar, children }) {
   const [userGender, setUserGender] = useState("");
   const [userAvatar, setUserAvatar] = useState("");
   const [userInitials, setUserInitials] = useState("");
+
+  // Search state & handlers
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchRef = useRef(null);
+
+  // Expanded client-side route index with templates for dynamic routes
+  const ROUTE_INDEX = [
+    { type: 'page', id: 'dashboard', title: 'Dashboard', route: '/dashboard' },
+    { type: 'page', id: 'courses', title: 'Courses', route: '/courses' },
+    { type: 'page', id: 'student-courses', title: 'My Courses', route: '/student/courses' },
+    { type: 'page', id: 'schedule', title: 'Schedule', route: '/schedule' },
+    { type: 'page', id: 'leaderboard', title: 'Leaderboard', route: '/leaderboard' },
+    { type: 'page', id: 'profile', title: 'Profile', route: '/profile' },
+    { type: 'page', id: 'subscription', title: 'Subscription', route: '/subscription' },
+    { type: 'page', id: 'payment', title: 'Payment', route: '/payment' },
+    { type: 'page', id: 'achievements', title: 'Achievements', route: '/student/achievements' },
+    { type: 'page', id: 'activity', title: 'Activity', route: '/student/activity' },
+    { type: 'page', id: 'admin-dashboard', title: 'Admin Dashboard', route: '/admin/dashboard' },
+    { type: 'page', id: 'instructor-dashboard', title: 'Instructor Dashboard', route: '/instructor/dashboard' },
+    { type: 'page', id: 'student-report', title: 'Student Report', route: '/parent/student-report' },
+
+    // More granular / dynamic templates
+    { type: 'course', id: 'course-template', title: 'Course (by id)', routeTemplate: '/student/courses/:courseId' },
+    { type: 'lesson', id: 'lesson-template', title: 'Lesson (in course)', routeTemplate: '/student/courses/:courseId?highlightLesson=:lessonId', params: ['courseId', 'lessonId'] },
+    { type: 'quiz', id: 'quiz-template', title: 'Quiz (in course)', routeTemplate: '/student/courses/:courseId?highlightQuiz=:quizId', params: ['courseId', 'quizId'] },
+    { type: 'instructor-lesson', id: 'instructor-lessons', title: 'Instructor Lessons', route: '/instructor/lessons' },
+    { type: 'student-course-lessons', id: 'student-course-lessons', title: 'Course Lessons', routeTemplate: '/student/courses/:courseId' }
+  ];
+
+  // Helper to resolve template routes using metadata provided with backend results
+  const resolveTemplateRoute = (template, meta = {}) => {
+    if (!template) return null;
+    const placeholders = (template.match(/:([a-zA-Z0-9_]+)/g) || []).map(s => s.substring(1));
+    let route = template;
+
+    for (const name of placeholders) {
+      // Accept different common meta key names
+      const val = meta[name] ?? meta[name.charAt(0).toLowerCase() + name.slice(1)] ?? meta[name.replace(/Id$/i, '_id')];
+      if (!val) return null; // cannot resolve
+      route = route.replace(new RegExp(`:${name}`, 'g'), encodeURIComponent(val));
+    }
+
+    return route;
+  };
+
+  // Perform search via API and local route index (augments backend results with template-resolved routes)
+  const performSearch = async (q) => {
+    const trimmed = (q || '').trim();
+    if (!trimmed) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      // Prefer backend results when available
+      const api = await import('../api');
+      const res = await api.search(trimmed);
+      let results = [];
+      if (res && res.success && Array.isArray(res.results) && res.results.length) {
+        results = res.results.map(r => ({ ...r }));
+      }
+
+      // If backend returned nothing, fall back to page text search
+      if (results.length === 0) {
+        const pageResults = searchPage(trimmed);
+        results = pageResults.map(r => ({ ...r }));
+      }
+
+      // Augment backend results by resolving template routes when metadata is available
+      results = results.map(r => {
+        const copy = { ...r };
+        if (!copy.route) {
+          // If result gives us a course id or lesson/quiz metadata, try to resolve
+          if (copy.type === 'course' && (copy.id || copy.meta?.id || copy.meta?.courseId)) {
+            const cid = copy.id || copy.meta?.id || copy.meta?.courseId;
+            copy.route = `/student/courses/${encodeURIComponent(cid)}`;
+          } else if ((copy.type === 'lesson' || copy.type === 'quiz') && copy.meta) {
+            const tpl = copy.type === 'lesson'
+              ? '/student/courses/:courseId?highlightLesson=:lessonId'
+              : '/student/courses/:courseId?highlightQuiz=:quizId';
+            const resolved = resolveTemplateRoute(tpl, { courseId: copy.meta.courseId || copy.meta.course_id || copy.meta?.course, lessonId: copy.meta.lessonId || copy.meta.lesson_id || copy.id, quizId: copy.meta.quizId || copy.meta.quiz_id || copy.id });
+            if (resolved) copy.route = resolved;
+          }
+        }
+        return copy;
+      });
+
+      // Always augment with local route matches (deduplicated by route)
+      const qLower = trimmed.toLowerCase();
+
+      // Static local matches: only include static routes or exact title matches
+      const localStaticMatches = ROUTE_INDEX.filter(r => r.route && ((r.title || '').toLowerCase().includes(qLower) || (r.route || '').toLowerCase().includes(qLower))).map(r => ({ ...r }));
+
+      // For template entries, we only include them if we can resolve them with metadata from existing results
+      const localResolvedFromResults = [];
+      ROUTE_INDEX.forEach(r => {
+        if (r.routeTemplate || r.params) {
+          // try to resolve from any result that contains needed metadata
+          for (const resItem of results) {
+            const resolved = resolveTemplateRoute(r.routeTemplate || r.route, resItem.meta || { id: resItem.id });
+            if (resolved && ((r.title || '').toLowerCase().includes(qLower) || resolved.toLowerCase().includes(qLower) || (resItem.title || '').toLowerCase().includes(qLower))) {
+              localResolvedFromResults.push({ type: r.type, id: r.id + '-' + (resItem.id || ''), title: resItem.title || r.title, route: resolved, snippet: resItem.snippet });
+            }
+          }
+        }
+      });
+
+      const byRoute = new Map();
+      results.forEach(it => {
+        if (it.route) byRoute.set(it.route, it);
+        else byRoute.set((it.type || '') + '-' + (it.id || Math.random()), it);
+      });
+      localStaticMatches.forEach(it => {
+        if (it.route && !byRoute.has(it.route)) byRoute.set(it.route, it);
+      });
+      localResolvedFromResults.forEach(it => {
+        if (it.route && !byRoute.has(it.route)) byRoute.set(it.route, it);
+      });
+
+      const merged = Array.from(byRoute.values());
+      setSearchResults(merged);
+    } catch (err) {
+      console.error('Search failed', err);
+      // fallback to route index + page search
+      const pageResults = searchPage(trimmed);
+      const qLower = trimmed.toLowerCase();
+      const localMatches = ROUTE_INDEX.filter(r => (r.title || '').toLowerCase().includes(qLower) || (r.route || '').toLowerCase().includes(qLower));
+      const merged = [...pageResults, ...localMatches];
+      setSearchResults(merged);
+    } finally {
+      setSearchLoading(false);
+      setSearchOpen(true);
+    }
+  };
+
+  // Search current page content
+  const searchPage = (query) => {
+    if (!query) return [];
+    const bodyText = document.body.innerText || '';
+    const lowerQuery = query.toLowerCase();
+    const lowerText = bodyText.toLowerCase();
+    const index = lowerText.indexOf(lowerQuery);
+    if (index !== -1) {
+      const start = Math.max(0, index - 50);
+      const end = Math.min(bodyText.length, index + query.length + 50);
+      const snippet = bodyText.substring(start, end);
+      return [{ type: 'page', id: 'current', title: 'Found on this page', snippet: snippet + (end < bodyText.length ? '...' : ''), route: window.location.pathname }];
+    }
+    return [];
+  };
+
+  // NOTE: Debounced per-keystroke search removed to support long-form searches as a single action (press Search or Ctrl+Enter).
+  // Long-form queries can be large; the UI provides an explicit Search button so users don't need to re-open the input for each word.
+
+
+  // Close search when clicking outside
+  useEffect(() => {
+    const handle = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, []);
+
+  const navigateToResult = (item) => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSearchResults([]);
+
+    if (!item) return;
+
+    // If it's a user, navigate to profile and pass state
+    if (item.type === 'user') {
+      navigate('/profile', { state: { user: item.meta?.userId } });
+      return;
+    }
+
+    // If lesson/quiz/course, navigate to course and highlight via query params
+    if (item.type === 'lesson') {
+      navigate(`/student/courses/${item.meta?.courseId}?highlightLesson=${item.meta?.lessonId}`);
+      return;
+    }
+
+    if (item.type === 'quiz') {
+      navigate(`/student/courses/${item.meta?.courseId}?highlightQuiz=${item.meta?.quizId}`);
+      return;
+    }
+
+    if (item.type === 'course') {
+      navigate(`/student/courses/${item.id}`);
+      return;
+    }
+
+    // fallback: open route if provided
+    if (item.route) {
+      navigate(item.route);
+    }
+  };
+
+  // SearchBox component — replaced with a search icon that opens a long-form textarea panel
+  function SearchBox() {
+    const [sentenceCount, setSentenceCount] = useState(0);
+    const [charCount, setCharCount] = useState(0);
+    const textareaRef = useRef(null);
+
+    const MAX_SENTENCES = 100;
+    const MAX_CHARS = 20000;
+
+    const countSentences = (text = '') => {
+      // Split on sentence boundary punctuation or newlines; trim empty segments
+      const parts = (text || '').split(/(?<=[.!?])\s+|\n+/).map(p => p.trim()).filter(Boolean);
+      return parts.length;
+    };
+
+    useEffect(() => {
+      setCharCount((searchQuery || '').length);
+      setSentenceCount(countSentences(searchQuery || ''));
+    }, [searchQuery]);
+
+    useEffect(() => {
+      if (searchOpen && textareaRef.current) {
+        const el = textareaRef.current;
+        el.focus();
+        const len = (el.value || '').length;
+        try { el.setSelectionRange(len, len); } catch (e) { /* ignore */ }
+      }
+    }, [searchOpen]);
+
+    const handleChange = (e) => {
+      let v = e.target.value || '';
+      if (v.length > MAX_CHARS) {
+        v = v.substring(0, MAX_CHARS);
+      }
+      setSearchQuery(v);
+      setCharCount(v.length);
+      setSentenceCount(countSentences(v));
+    };
+
+    const handleSubmit = () => {
+      let q = (searchQuery || '').trim();
+      if (!q) return;
+
+      // Enforce sentence cap — truncate to first MAX_SENTENCES sentences
+      const parts = (q || '').split(/(?<=[.!?])\s+|\n+/).map(p => p.trim()).filter(Boolean);
+      if (parts.length > MAX_SENTENCES) {
+        q = parts.slice(0, MAX_SENTENCES).join(' ');
+      }
+
+      performSearch(q);
+    };
+
+    return (
+      <div ref={searchRef} style={{ position: 'relative', display: 'inline-block' }}>
+        <button
+          onClick={() => setSearchOpen(!searchOpen)}
+          aria-label="Open search"
+          aria-expanded={searchOpen}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '4px',
+            color: 'var(--text)',
+            fontSize: '18px'
+          }}
+        >
+          <FiSearch size={22} />
+        </button>
+
+        {searchOpen && (
+          <div style={{
+            position: 'absolute',
+            top: '40px',
+            right: 0,
+            width: '300px',
+            maxWidth: '92vw',
+            background: 'var(--card)',
+            border: '1px solid var(--border)',
+            borderRadius: '8px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+            zIndex: 300,
+            maxHeight: '70vh',
+            overflowY: 'auto'
+          }}>
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>
+              <input
+                ref={textareaRef}
+                type="text"
+                aria-label="Search input"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={handleChange}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                  if (e.key === 'Escape') {
+                    setSearchOpen(false);
+                  }
+                }}
+                style={{ width: '100%', padding: '8px', fontSize: '14px', border: '1px solid var(--border)', borderRadius: '6px', background: 'var(--surface)', color: 'var(--text)' }}
+              />
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+                  <button onClick={() => { setSearchOpen(false); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}>
+                    Cancel
+                  </button>
+
+                  <button onClick={handleSubmit} disabled={searchLoading || !searchQuery.trim()} style={{ padding: '6px 10px', borderRadius: '6px', background: 'var(--primary)', color: '#fff', border: 'none', cursor: searchLoading || !searchQuery.trim() ? 'not-allowed' : 'pointer' }}>
+                    {searchLoading ? 'Searching...' : 'Search'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: '8px' }}>
+              {searchLoading && <div style={{ padding: '12px', color: 'var(--muted)' }}>Searching...</div>}
+
+              {!searchLoading && searchResults.length === 0 && searchQuery.trim() && <div style={{ padding: '12px', color: 'var(--muted)' }}>No results found</div>}
+
+              {!searchLoading && searchResults.map((r) => (
+                <div key={`${r.type}-${r.id}`} role="button" tabIndex={0} onClick={() => navigateToResult(r)} onKeyDown={(e) => { if (e.key === 'Enter') navigateToResult(r); }} style={{ padding: '8px', borderBottom: '1px solid var(--border)', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: (r.type === 'course' ? '#1b65d4' : r.type === 'user' ? '#2db88e' : r.type === 'page' ? '#ff6b35' : '#4acb9a') }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '13px' }}>{r.title}</div>
+                    {r.snippet && <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{r.snippet}</div>}
+                    <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>{r.type}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // Theme state ('light' | 'dark') persisted in localStorage
   const [theme, setTheme] = useState(() => {
@@ -280,6 +623,11 @@ function Header({ onToggleSidebar, children }) {
           </button>
         </div>
 
+        {/* Global Search Bar (placed before notifications) */}
+        <div style={{ display: 'inline-block', marginRight: '12px', verticalAlign: 'middle' }}>
+          <SearchBox />
+        </div>
+
         {/* Notification Icon */}
         <div ref={notificationRef} style={{ display: "inline-block", position: "relative", marginRight: "15px" }}>
           <div style={{ position: "relative", display: "inline-block" }}>
@@ -294,17 +642,17 @@ function Header({ onToggleSidebar, children }) {
             {unreadCount > 0 && (
               <span style={{
                 position: "absolute",
-                top: "-5px",
-                right: "-5px",
+                top: "-6px",
+                right: "-6px",
                 backgroundColor: "#EF4444",
                 color: "white",
                 borderRadius: "50%",
-                width: "20px",
-                height: "20px",
+                width: "18px",
+                height: "18px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: "12px",
+                fontSize: "11px",
                 fontWeight: "bold"
               }}>
                 {unreadCount}
@@ -472,8 +820,8 @@ function Header({ onToggleSidebar, children }) {
             <div
               style={{
                 cursor: "pointer",
-                width: "45px",
-                height: "45px",
+                width: "40px",
+                height: "40px",
                 borderRadius: "50%",
                 background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                 display: "flex",
@@ -485,15 +833,15 @@ function Header({ onToggleSidebar, children }) {
               <img
                 src={avatarFemale}
                 alt="Female Avatar"
-                style={{ width: "36px", height: "36px" }}
+                style={{ width: "32px", height: "32px" }}
               />
             </div>
           ) : (
             <div
               style={{
                 cursor: "pointer",
-                width: "45px",
-                height: "45px",
+                width: "40px",
+                height: "40px",
                 borderRadius: "50%",
                 background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
                 display: "flex",
@@ -505,7 +853,7 @@ function Header({ onToggleSidebar, children }) {
               <img
                 src={profile}
                 alt="Male Avatar"
-                style={{ width: "36px", height: "36px" }}
+                style={{ width: "32px", height: "32px" }}
               />
             </div>
       

@@ -144,6 +144,27 @@ export async function getNotifications(limit = 20, page = 1) {
   return res.json();
 }
 
+// ===== Search =====
+export async function search(query) {
+  const qRaw = (query || '').trim();
+  if (!qRaw) return { success: false, query: qRaw, results: [] };
+
+  // Count sentences to decide whether to use POST for long-form searches
+  const sentences = (qRaw.match(/[^.!?\n]+[.!?\n]*/g) || []).map(s => s.trim()).filter(Boolean);
+  const usePost = qRaw.length > 500 || qRaw.includes('\n') || sentences.length > 1;
+
+  if (usePost) {
+    // Use POST to handle large payloads and long-form queries
+    const res = await fetch(`${BASE}/search`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ q: qRaw }) });
+    return res.json();
+  }
+
+  // Short single-line query — use GET
+  const q = encodeURIComponent(qRaw);
+  const res = await fetch(`${BASE}/search?q=${q}`, { headers: authHeaders() });
+  return res.json();
+}
+
 export async function getUnreadNotificationCount() {
   const res = await fetch(`${BASE}/notifications/count/unread`, { headers: authHeaders() });
   return res.json();
@@ -175,6 +196,16 @@ export async function getUpcomingClasses(limit = 20, page = 1) {
   return res.json();
 }
 
+// ===== Student dashboard feed (live, upcoming, notifications, announcements) =====
+export async function getDashboardFeed(limit = 50, since = null) {
+  const params = new URLSearchParams();
+  if (limit) params.set('limit', limit);
+  if (since) params.set('since', new Date(since).toISOString());
+  const url = `${BASE}/student/dashboard-feed${params.toString() ? `?${params.toString()}` : ''}`;
+  const res = await fetch(url, { headers: authHeaders() });
+  return res.json();
+}
+
 export default {
   getCourses,
   createCourse,
@@ -193,4 +224,5 @@ export default {
   updateProfile,
   getStreak
   ,getUpcomingClasses
+  ,getDashboardFeed
 };

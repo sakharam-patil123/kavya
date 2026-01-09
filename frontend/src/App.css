@@ -620,11 +620,25 @@ ul {
   gap: 18px;
 }
 
-/* ICONS */
-.header-notification {
-  height: 26px;
-  width: 26px;
-  cursor: pointer;
+/* Search box responsive tweaks */
+.header-right input[aria-label="Global search"] {
+  transition: width 0.2s ease;
+}
+
+@media (max-width: 768px) {
+  .header-right input[aria-label="Global search"] {
+    width: 160px !important;
+  }
+  .header-right div[role="button"] {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .header-right input[aria-label="Global search"] {
+    width: 120px !important;
+    padding: 6px 8px !important;
+  }
 }
 
 .header-theme-toggle {
@@ -651,10 +665,22 @@ ul {
   transform: scale(0.95);
 }
 
-.header-profile {
-  height: 52px;
-  width: 52px;
+/* Make profile and notification icons consistent and compact */
+.header-notification {
+  height: 40px;
+  width: 40px;
   cursor: pointer;
+  border-radius: 50%;
+  object-fit: cover;
+  padding: 6px;
+}
+
+.header-profile {
+  height: 40px;
+  width: 40px;
+  cursor: pointer;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 /* ---------------------------- */
@@ -683,13 +709,14 @@ ul {
 
   /* Resize icons slightly for cleaner mobile look */
   .header-notification {
-    height: 24px;
-    width: 24px;
+    height: 36px;
+    width: 36px;
+    padding: 4px;
   }
 
   .header-profile {
-    height: 48px;
-    width: 48px;
+    height: 40px;
+    width: 40px;
   }
 }
 
