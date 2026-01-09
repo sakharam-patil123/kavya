@@ -2,6 +2,7 @@ const express = require('express');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const {
   getStudentDashboard,
+  getDashboardFeed,
   getStudentCourses,
   getStudentCourse,
   getEnrolledCourses,
@@ -21,6 +22,7 @@ router.use(protect, authorize('student'));
 
 // Dashboard
 router.get('/dashboard', getStudentDashboard);
+router.get('/dashboard-feed', getDashboardFeed);
 
 // Profile
 router.get('/profile', getStudentProfile);

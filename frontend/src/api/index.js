@@ -196,6 +196,16 @@ export async function getUpcomingClasses(limit = 20, page = 1) {
   return res.json();
 }
 
+// ===== Student dashboard feed (live, upcoming, notifications, announcements) =====
+export async function getDashboardFeed(limit = 50, since = null) {
+  const params = new URLSearchParams();
+  if (limit) params.set('limit', limit);
+  if (since) params.set('since', new Date(since).toISOString());
+  const url = `${BASE}/student/dashboard-feed${params.toString() ? `?${params.toString()}` : ''}`;
+  const res = await fetch(url, { headers: authHeaders() });
+  return res.json();
+}
+
 export default {
   getCourses,
   createCourse,
@@ -214,4 +224,5 @@ export default {
   updateProfile,
   getStreak
   ,getUpcomingClasses
+  ,getDashboardFeed
 };

@@ -24,6 +24,12 @@ const enrollmentSchema = new mongoose.Schema({
     ref: 'Payment',
     default: null 
   },
+  // Whether this enrollment was granted free by an admin
+  isFree: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
   certificateDownloadedAt: { 
     type: Date,
     default: null 
