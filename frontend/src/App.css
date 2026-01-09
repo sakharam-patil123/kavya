@@ -120,6 +120,17 @@ html, body, .main-content, .sidebar, .card, .header-wrapper, .dropdown-menu {
   border-color: var(--border) !important;
 }
 
+/* Ensure sidebar links and icons are white in dark mode */
+.dark .sidebar .nav-link {
+  color: var(--text) !important;
+}
+.dark .sidebar .nav-link .nav-icon {
+  color: var(--text) !important;
+}
+.dark .sidebar .nav-link .nav-icon svg {
+  stroke: var(--text) !important;
+}
+
 .header {
   display: flex;
   align-items: center;

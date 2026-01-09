@@ -2,9 +2,10 @@ const express = require('express');
 const { protect, authorize } = require('../middleware/authMiddleware');
 const {
   getStudentDashboard,
-  getStudentDashboardFeed,
+  getDashboardFeed,
   getStudentCourses,
   getStudentCourse,
+  getEnrolledCourses,
   completeLesson,
   getStudentAchievements,
   getStudentActivity,
@@ -21,8 +22,7 @@ router.use(protect, authorize('student'));
 
 // Dashboard
 router.get('/dashboard', getStudentDashboard);
-// Feed (live lectures, upcoming classes, notifications, announcements)
-router.get('/dashboard/feed', getStudentDashboardFeed);
+router.get('/dashboard-feed', getDashboardFeed);
 
 // Profile
 router.get('/profile', getStudentProfile);
@@ -31,6 +31,7 @@ router.put('/profile', updateStudentProfile);
 // Courses
 router.get('/courses', getStudentCourses);
 router.get('/courses/:courseId', getStudentCourse);
+router.get('/enrolled-courses', getEnrolledCourses);
 router.post('/enroll/:courseId', enrollCourse);
 
 // Lesson completion

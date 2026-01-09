@@ -191,14 +191,41 @@ exports.deleteCourse = async (req, res) => {
 // --- Enrollments ---
 exports.createEnrollment = async (req, res) => {
   try {
-    const { studentId, courseId } = req.body;
+    const { studentId, courseId, isFree } = req.body;
     if (!studentId || !courseId) return res.status(400).json({ message: 'studentId and courseId required' });
     const existing = await Enrollment.findOne({ studentId, courseId });
     if (existing) return res.status(400).json({ message: 'Student already enrolled' });
-    const enrollment = await Enrollment.create({ studentId, courseId });
+
+    const enrollmentPayload = { studentId, courseId };
+    if (isFree) {
+      enrollmentPayload.isFree = true;
+      enrollmentPayload.purchaseStatus = 'free';
+    }
+
+    const enrollment = await Enrollment.create(enrollmentPayload);
+
     // Add student to course.studentsEnrolled
     await Course.findByIdAndUpdate(courseId, { $addToSet: { studentsEnrolled: studentId } });
-    await ActivityLog.create({ action: 'create_enrollment', performedBy: req.user._id, targetType: 'Enrollment', targetId: enrollment._id, details: { studentId, courseId } });
+
+    // Also ensure the student's User.enrolledCourses subdocument contains this course
+    try {
+      const student = await User.findById(studentId);
+      if (student && !student.enrolledCourses.some(ec => ec.course.toString() === courseId.toString())) {
+        student.enrolledCourses.push({
+          course: courseId,
+          completedLessons: [],
+          hoursSpent: 0,
+          completionPercentage: 0,
+          enrollmentDate: new Date()
+        });
+        await student.save();
+      }
+    } catch (uErr) {
+      // don't fail the whole operation for a user update issue - log for debugging
+      console.warn('Failed to update User.enrolledCourses after admin enrollment:', uErr.message);
+    }
+
+    await ActivityLog.create({ action: 'create_enrollment', performedBy: req.user._id, targetType: 'Enrollment', targetId: enrollment._id, details: { studentId, courseId, isFree: !!isFree } });
     res.status(201).json(enrollment);
   } catch (err) {
     res.status(400).json({ message: err.message });

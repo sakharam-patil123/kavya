@@ -2027,6 +2027,26 @@ export default function Courses() {
     return () => { active = false; };
   }, [location.search]);
 
+  // Handle tab parameter from URL (for search navigation)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    
+    // Valid tab names
+    const validTabs = ['curriculum', 'instructor', 'reviews', 'quizzes', 'resources'];
+    
+    if (tabParam && validTabs.includes(tabParam.toLowerCase())) {
+      setTab(tabParam.toLowerCase());
+      
+      // Scroll to curriculum if curriculum tab is opened
+      if (tabParam.toLowerCase() === 'curriculum' && curriculumRef.current) {
+        setTimeout(() => {
+          curriculumRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 300);
+      }
+    }
+  }, [location.search]);
+
   // Scroll curriculum into view whenever it's opened
   useEffect(() => {
     if (tab === "curriculum" && curriculumRef.current) {
@@ -2034,6 +2054,27 @@ export default function Courses() {
       curriculumRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [tab]);
+
+  // Scroll to enroll button when navigating from search (if not enrolled)
+  useEffect(() => {
+    const courseId = new URLSearchParams(location.search || window.location.search).get('id');
+    if (courseId && !enrolled) {
+      // Delay to ensure the enroll button is rendered
+      const timer = setTimeout(() => {
+        const enrollButton = document.querySelector('[data-enroll-button="true"]');
+        if (enrollButton) {
+          enrollButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Highlight the button briefly
+          enrollButton.style.transition = 'box-shadow 0.3s ease';
+          enrollButton.style.boxShadow = '0 0 20px rgba(27, 101, 212, 0.5)';
+          setTimeout(() => {
+            enrollButton.style.boxShadow = '';
+          }, 2000);
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [location.search, enrolled]);
 
   // Compute course progress based on watched lessons
   // If not enrolled, progress should always be 0%
@@ -2351,6 +2392,7 @@ export default function Courses() {
                   className="btn btn-learn d-flex align-items-center gap-2"
                   onClick={handleEnrollClick}
                   title="Click to enroll in this course"
+                  data-enroll-button="true"
                 >
                   <i className="bi bi-person-plus"></i> Enroll
                 </button>
