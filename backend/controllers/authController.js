@@ -6,6 +6,90 @@ const Schedule = require('../models/scheduleModel');
 const Event = require('../models/eventModel');
 const sendgrid = require('@sendgrid/mail');
 
+// Simple forgot/reset password helpers (minimal, dev-friendly)
+// Generates a short-lived token (1 hour) that encodes the user id.
+const createResetToken = (userId) => {
+    return jwt.sign({ id: userId }, process.env.JWT_SECRET || 'dev_jwt_secret', { expiresIn: '1h' });
+};
+
+// @desc    Forgot password - generate reset link (dev-friendly)
+// @route   POST /api/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ message: 'Email is required' });
+
+        const user = await User.findOne({ email });
+        if (!user) {
+            // Don't reveal whether the email exists
+            return res.status(200).json({ message: 'If that email is registered, a reset link has been generated.' });
+        }
+
+        const token = createResetToken(user._id);
+        const frontend = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const resetUrl = `${frontend}/reset-password?token=${token}`;
+
+        // Try to send an email if SendGrid configured, but always return the link for dev convenience
+        if (process.env.SENDGRID_API_KEY) {
+            try {
+                sendgrid.setApiKey(process.env.SENDGRID_API_KEY);
+                await sendgrid.send({
+                    to: user.email,
+                    from: process.env.FROM_EMAIL || 'no-reply@example.com',
+                    subject: 'Password reset',
+                    text: `Reset your password: ${resetUrl}`
+                });
+            } catch (e) {
+                console.warn('SendGrid send failed:', e && e.message ? e.message : e);
+            }
+        }
+
+        // Return resetUrl for development/testing. In production, consider not returning this.
+        return res.status(200).json({ message: 'Reset link generated', resetUrl });
+    } catch (err) {
+        console.error('forgotPassword error:', err);
+        return res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// @desc    Reset password using token
+// @route   POST /api/auth/reset-password
+// @access  Public
+exports.resetPassword = async (req, res) => {
+    try {
+        const { token, password } = req.body;
+        console.log('resetPassword called - token present?', !!token, 'password present?', !!password);
+        if (!token || !password) return res.status(400).json({ message: 'Token and password are required' });
+
+        let decoded;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_jwt_secret');
+        } catch (e) {
+            console.warn('resetPassword jwt.verify error:', e && e.message ? e.message : e);
+            return res.status(400).json({ message: 'Invalid or expired token' });
+        }
+
+        console.log('resetPassword decoded payload:', decoded);
+
+        const user = await User.findById(decoded.id).select('+password');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        user.password = password;
+        await user.save();
+
+        return res.status(200).json({ message: 'Password reset successful' });
+    } catch (err) {
+        // If Mongoose validation failed for the new password, return 400 with the validation message
+        if (err && err.name === 'ValidationError') {
+            console.error('resetPassword validation error:', err.message || err);
+            return res.status(400).json({ message: err.message || 'Validation error' });
+        }
+        console.error('resetPassword error:', err);
+        return res.status(500).json({ message: 'Server error' });
+    }
+};
+
 // Generate JWT Token
 const generateToken = (userId, userRole) => {
     if (!userRole) {

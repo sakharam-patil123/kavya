@@ -42,8 +42,12 @@ import StudentReport from './pages/Parent/StudentReport';
 
 function Layout() {
   const location = useLocation();
+  // Hide the app layout (sidebar/dashboard) on routes that are public pages
+  // where we don't want the sidebar to appear (login, register, reset-password)
   const hideLayout =
-    location.pathname === "/" || location.pathname === "/register";
+    location.pathname === "/" ||
+    location.pathname === "/register" ||
+    location.pathname === "/reset-password";
 
   const [isOpen, setIsOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -115,6 +119,7 @@ function Layout() {
           <Route path="/payment" element={<PaymentInterface />}></Route>
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/reset-password" element={<Login />} />
          
         </Routes>
       </main>
