@@ -103,7 +103,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const searchRoutes = require('./routes/searchRoutes');
- const uploadRoutes = require('./routes/uploadRoutes');
+
 
 // Mount routes
 app.use('/api/auth', authRoutes);
