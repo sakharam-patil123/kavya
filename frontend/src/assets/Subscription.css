@@ -63,6 +63,44 @@ body {
     0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
+/* Highlighted course card styles */
+.course-card-highlighted {
+  background-color: #fef3c7 !important;
+  border: 3px solid #f59e0b;
+  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2), 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  animation: pulse-highlight 2s ease-in-out infinite;
+}
+
+@keyframes pulse-highlight {
+  0%, 100% {
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2), 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+      0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.3), 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+      0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+}
+
+.course-button-highlighted {
+  background-color: #f59e0b !important;
+  color: white !important;
+  font-weight: 700 !important;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4) !important;
+  animation: button-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes button-pulse {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 6px 16px rgba(245, 158, 11, 0.6);
+  }
+}
+
 .course-card-content {
   position: relative;
   padding: 1.5rem;

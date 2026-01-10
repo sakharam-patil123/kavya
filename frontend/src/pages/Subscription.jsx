@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Star, Clock, ChevronRight, Users } from "lucide-react";
 import "../assets/Subscription.css";
 import AppLayout from "../components/AppLayout";
-import { useNavigate } from "react-router-dom"; // <-- Added
+import { useNavigate, useLocation } from "react-router-dom";
 
 // Static demo courses removed — subscription page relies only on backend course data
 // (This prevents five demo courses from appearing to students.)
@@ -77,7 +77,11 @@ function CourseCard({ course, onEnroll, isFavorite, onToggleFavorite }) {
           </div>
         </div>
 
-        <button onClick={() => onEnroll(course)} className="course-button">
+        <button 
+          onClick={() => onEnroll(course)} 
+          className={`course-button ${isHighlighted ? 'course-button-highlighted' : ''}`}
+          data-enroll-button={isHighlighted ? 'true' : undefined}
+        >
           Enroll Now
         </button>
       </div>

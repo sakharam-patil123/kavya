@@ -78,8 +78,15 @@ function Header({ onToggleSidebar, children }) {
       const api = await import('../api');
       const res = await api.search(trimmed);
       let results = [];
-      if (res && res.success && Array.isArray(res.results) && res.results.length) {
-        results = res.results.map(r => ({ ...r }));
+      let categorizedData = null;
+      if (res && res.success) {
+        if (Array.isArray(res.results) && res.results.length) {
+          results = res.results.map(r => ({ ...r, _categorized: res.categorized }));
+        }
+        // Store categorized data for display
+        if (res.categorized) {
+          categorizedData = res.categorized;
+        }
       }
 
       // If backend returned nothing, fall back to page text search
@@ -95,7 +102,7 @@ function Header({ onToggleSidebar, children }) {
           // If result gives us a course id or lesson/quiz metadata, try to resolve
           if (copy.type === 'course' && (copy.id || copy.meta?.id || copy.meta?.courseId)) {
             const cid = copy.id || copy.meta?.id || copy.meta?.courseId;
-            copy.route = `/student/courses/${encodeURIComponent(cid)}`;
+            copy.route = `/subscription?courseId=${encodeURIComponent(cid)}`;
           } else if ((copy.type === 'lesson' || copy.type === 'quiz') && copy.meta) {
             const tpl = copy.type === 'lesson'
               ? '/student/courses/:courseId?highlightLesson=:lessonId'
@@ -141,6 +148,17 @@ function Header({ onToggleSidebar, children }) {
 
       const merged = Array.from(byRoute.values());
       setSearchResults(merged);
+
+      // Auto-navigate if any course result matches (course-specific search behavior)
+      const courseResults = merged.filter(r => r.type === 'course');
+      if (courseResults.length > 0) {
+        // Course found - auto-navigate to Subscription page with the most relevant course
+        navigate(`/subscription?courseId=${courseResults[0].id}`);
+        setSearchOpen(false);
+        setSearchQuery('');
+        setSearchResults([]);
+        return;
+      }
     } catch (err) {
       console.error('Search failed', err);
       // fallback to route index + page search
@@ -211,7 +229,38 @@ function Header({ onToggleSidebar, children }) {
     }
 
     if (item.type === 'course') {
-      navigate(`/student/courses/${item.id}`);
+      // Navigate to Subscription page with courseId parameter
+      navigate(`/subscription?courseId=${item.id}`);
+      return;
+    }
+
+    // Handle course-section type (for Curriculum, Instructor, Reviews, Quizzes, Resources)
+    if (item.type === 'course-section') {
+      // Navigate to Courses page with courseId and tab parameters
+      navigate(item.route || `/courses?id=${item.id}&tab=${item.meta?.sectionType || ''}`);
+      return;
+    }
+
+    // Handle curriculum-item type
+    if (item.type === 'curriculum-item') {
+      navigate(item.route || `/courses?id=${item.meta?.courseId}&tab=curriculum`);
+      return;
+    }
+
+    // Handle quiz-item type
+    if (item.type === 'quiz-item') {
+      navigate(item.route || `/courses?id=${item.meta?.courseId}&tab=quizzes`);
+      return;
+    }
+
+    // Handle instructor type
+    if (item.type === 'instructor') {
+      // Navigate to profile or instructor page
+      if (item.meta?.courseId) {
+        navigate(`/courses?id=${item.meta.courseId}&tab=instructor`);
+      } else {
+        navigate(item.route || '/profile');
+      }
       return;
     }
 
@@ -332,7 +381,8 @@ function Header({ onToggleSidebar, children }) {
                     Cancel
                   </button>
 
-                  <button onClick={handleSubmit} disabled={searchLoading || !searchQuery.trim()} style={{ padding: '6px 10px', borderRadius: '6px', background: 'var(--primary)', color: '#fff', border: 'none', cursor: searchLoading || !searchQuery.trim() ? 'not-allowed' : 'pointer' }}>
+                  <button onClick={handleSubmit} disabled={searchLoading || !searchQuery.trim()} style={{ padding: '6px 10px', borderRadius: '6px', background: 'var(--primary)', color: '#fff', border: 'none', cursor: searchLoading || !searchQuery.trim() ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FiSearch size={16} />
                     {searchLoading ? 'Searching...' : 'Search'}
                   </button>
                 </div>
@@ -342,18 +392,138 @@ function Header({ onToggleSidebar, children }) {
             <div style={{ padding: '8px' }}>
               {searchLoading && <div style={{ padding: '12px', color: 'var(--muted)' }}>Searching...</div>}
 
-              {!searchLoading && searchResults.length === 0 && searchQuery.trim() && <div style={{ padding: '12px', color: 'var(--muted)' }}>No results found</div>}
-
-              {!searchLoading && searchResults.map((r) => (
-                <div key={`${r.type}-${r.id}`} role="button" tabIndex={0} onClick={() => navigateToResult(r)} onKeyDown={(e) => { if (e.key === 'Enter') navigateToResult(r); }} style={{ padding: '8px', borderBottom: '1px solid var(--border)', cursor: 'pointer', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: (r.type === 'course' ? '#1b65d4' : r.type === 'user' ? '#2db88e' : r.type === 'page' ? '#ff6b35' : '#4acb9a') }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '13px' }}>{r.title}</div>
-                    {r.snippet && <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{r.snippet}</div>}
-                    <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px' }}>{r.type}</div>
-                  </div>
+              {!searchLoading && searchResults.length === 0 && searchQuery.trim() && (
+                <div style={{ padding: '12px', color: 'var(--muted)', textAlign: 'center' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '4px' }}>No Results Found</div>
+                  <div style={{ fontSize: '12px' }}>No results found for "{searchQuery}"</div>
                 </div>
-              ))}
+              )}
+
+              {!searchLoading && searchResults.length > 0 && (() => {
+                // Get categorized results from API response if available
+                const searchResponse = searchResults.length > 0 && searchResults[0]._categorized ? 
+                  searchResults[0]._categorized : null;
+                
+                // Group results by category for display
+                const categories = {
+                  courses: searchResults.filter(r => r.type === 'course'),
+                  curriculum: searchResults.filter(r => r.type === 'curriculum-item' || (r.type === 'course-section' && r.meta?.sectionType === 'curriculum')),
+                  instructors: searchResults.filter(r => r.type === 'instructor' || (r.type === 'course-section' && r.meta?.sectionType === 'instructor')),
+                  reviews: searchResults.filter(r => r.type === 'course-section' && r.meta?.sectionType === 'reviews'),
+                  quizzes: searchResults.filter(r => r.type === 'quiz-item' || (r.type === 'course-section' && r.meta?.sectionType === 'quizzes')),
+                  resources: searchResults.filter(r => r.type === 'course-section' && r.meta?.sectionType === 'resources'),
+                  users: searchResults.filter(r => r.type === 'user' && r.meta?.role !== 'instructor'),
+                  lessons: searchResults.filter(r => r.type === 'lesson')
+                };
+
+                // Determine a primary category when section-specific results exist.
+                // This ensures we only show the relevant panel instead of mixing categories.
+                const primaryCategory =
+                  categories.curriculum.length ? 'curriculum' :
+                  categories.instructors.length ? 'instructors' :
+                  categories.reviews.length ? 'reviews' :
+                  categories.quizzes.length ? 'quizzes' :
+                  categories.resources.length ? 'resources' :
+                  null;
+
+                const categoryLabels = {
+                  courses: 'Courses',
+                  curriculum: 'Curriculum',
+                  instructors: 'Instructors',
+                  reviews: 'Reviews',
+                  quizzes: 'Quizzes',
+                  resources: 'Resources',
+                  users: 'Users',
+                  lessons: 'Lessons'
+                };
+
+                const categoryColors = {
+                  courses: '#1b65d4',
+                  curriculum: '#10b981',
+                  instructors: '#8b5cf6',
+                  reviews: '#f59e0b',
+                  quizzes: '#ef4444',
+                  resources: '#06b6d4',
+                  users: '#2db88e',
+                  lessons: '#6366f1'
+                };
+
+                const renderCategory = (categoryKey, items) => {
+                  if (!items || items.length === 0) return null;
+
+                  return (
+                    <div key={categoryKey} style={{ marginBottom: '16px' }}>
+                      <div style={{ 
+                        padding: '6px 8px', 
+                        background: 'var(--surface)', 
+                        borderLeft: `3px solid ${categoryColors[categoryKey] || '#666'}`,
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        color: 'var(--muted)',
+                        marginBottom: '8px'
+                      }}>
+                        {categoryLabels[categoryKey]} ({items.length})
+                      </div>
+                      {items.map((r) => (
+                        <div 
+                          key={`${r.type}-${r.id}`} 
+                          role="button" 
+                          tabIndex={0} 
+                          onClick={() => navigateToResult(r)} 
+                          onKeyDown={(e) => { if (e.key === 'Enter') navigateToResult(r); }} 
+                          style={{ 
+                            padding: '8px', 
+                            borderBottom: '1px solid var(--border)', 
+                            cursor: 'pointer', 
+                            display: 'flex', 
+                            gap: '8px', 
+                            alignItems: 'center',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface)'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <div style={{ 
+                            width: '10px', 
+                            height: '10px', 
+                            borderRadius: '3px', 
+                            background: categoryColors[categoryKey] || '#666',
+                            flexShrink: 0
+                          }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {r.title}
+                            </div>
+                            {r.snippet && (
+                              <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {r.snippet}
+                              </div>
+                            )}
+                            <div style={{ fontSize: '10px', color: 'var(--muted)', marginTop: '4px', textTransform: 'capitalize' }}>
+                              {r.type === 'course-section' ? (r.meta?.sectionType || 'course section') : r.type === 'curriculum-item' ? 'lesson' : r.type === 'quiz-item' ? 'quiz' : r.type}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                };
+
+                // Render all categories that have results
+                return (
+                  <>
+                    {Object.keys(categories)
+                      .filter(key => {
+                        // If a primary category exists (e.g., curriculum search), show only that panel.
+                        if (primaryCategory) return key === primaryCategory;
+                        // Otherwise show all categories that have results.
+                        return categories[key] && categories[key].length > 0;
+                      })
+                      .map(key => renderCategory(key, categories[key]))}
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -587,7 +757,7 @@ function Header({ onToggleSidebar, children }) {
     <header className="header-wrapper" style={{ position: "relative" }}>
       <div className="header-left">
         <button className="mobile-toggle" onClick={onToggleSidebar}>☰</button>
-        <div className="header-title">{children}</div>
+        <div className="header-title" style={{ color: 'var(--text)' }}>{children}</div>
       </div>
  
       <div className="header-right" style={{ position: "relative" }}>
