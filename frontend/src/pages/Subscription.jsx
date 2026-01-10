@@ -31,9 +31,20 @@ const resolveCourseLogo = (course) => {
 };
 
 // CourseCard Component
-function CourseCard({ course, onEnroll }) {
+function CourseCard({ course, onEnroll, isFavorite, onToggleFavorite }) {
   return (
     <div className="course-card">
+      <button
+        className={`favorite-btn ${isFavorite ? 'favorite-active' : ''}`}
+        aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        onClick={(e) => { e.stopPropagation(); onToggleFavorite(course.id); }}
+        title={isFavorite ? 'Unpin from Favorites' : 'Pin to Favorites'}
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" className="favorite-icon" aria-hidden="true">
+          <path d="M12 21s-6.716-4.694-9.243-7.028C-1.424 10.124 1.5 6 5.5 6c2.245 0 3.5 1.5 6.5 1.5S16.255 6 18.5 6C22.5 6 25.424 10.124 21.243 13.972 18.716 16.306 12 21 12 21z" fill="currentColor" />
+        </svg>
+      </button>
+
       <div className="course-card-content">
         {course.isPremium && <span className="premium-badge">PREMIUM</span>}
 
@@ -79,6 +90,15 @@ function CourseListing({ onCourseSelect }) {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
+  const [favorites, setFavorites] = useState(() => {
+    try {
+      const raw = localStorage.getItem('favoriteCourses') || '[]';
+      return JSON.parse(raw);
+    } catch (e) {
+      return [];
+    }
+  });
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   useEffect(() => {
     // Fetch profile first (to determine role), then fetch courses
@@ -159,6 +179,23 @@ function CourseListing({ onCourseSelect }) {
     })();
   }, []);
 
+  // Persist favorites to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('favoriteCourses', JSON.stringify(favorites || []));
+    } catch (e) {
+      console.warn('Could not persist favorites', e);
+    }
+  }, [favorites]);
+
+  const toggleFavorite = (courseId) => {
+    setFavorites((prev) => {
+      if (!prev) return [courseId];
+      if (prev.includes(courseId)) return prev.filter((id) => id !== courseId);
+      return [...prev, courseId];
+    });
+  };
+
   if (loading) {
     return (
       <div className="course-listing">
@@ -171,21 +208,38 @@ function CourseListing({ onCourseSelect }) {
     );
   }
 
+  const displayedCourses = showFavoritesOnly
+    ? courses.filter((c) => favorites && favorites.includes(c.id))
+    : courses;
+
   return (
     <div className="course-listing">
       <div className="course-listing-container">
-        {courses.length === 0 ? (
+        <div className="favorites-bar">
+          <label className="favorites-toggle">
+            <input
+              type="checkbox"
+              checked={showFavoritesOnly}
+              onChange={() => setShowFavoritesOnly((s) => !s)}
+            />
+            Show Favorites only
+          </label>
+          <div className="favorites-count">Favorites: {favorites ? favorites.length : 0}</div>
+        </div>
+        {displayedCourses.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
             <p>No courses available right now. Please check back later or contact support if this looks unexpected.</p>
             <p style={{ fontSize: '14px', color: '#999' }}>If you're an instructor or admin, create courses from the admin panel.</p>
           </div>
         ) : (
           <div className="course-grid">
-            {courses.map((course) => (
+            {displayedCourses.map((course) => (
               <CourseCard
                 key={course.id}
                 course={course}
                 onEnroll={onCourseSelect}
+                isFavorite={favorites && favorites.includes(course.id)}
+                onToggleFavorite={toggleFavorite}
               />
             ))}
           </div>
