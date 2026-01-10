@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import axiosClient from "../../api/axiosClient";
 import AppLayout from "../../components/AppLayout";
 import CreateUserModal from "../../components/CreateUserModal";
@@ -16,6 +16,11 @@ const AdminStudents = () => {
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [modalLoading, setModalLoading] = useState(false);
   const [modalMessage, setModalMessage] = useState(null);
+  // Search & sort state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [cityQuery, setCityQuery] = useState("");
+  const [genderFilter, setGenderFilter] = useState("all");
+  const [genderSort, setGenderSort] = useState("none"); // none | asc | desc
 
   const loadStudents = async () => {
     try {
@@ -33,6 +38,54 @@ const AdminStudents = () => {
   useEffect(() => {
     loadStudents();
   }, []);
+
+  // compute filtered and sorted students with stable hook order
+  const filteredStudents = useMemo(() => {
+    let out = students.filter((s) => {
+      const name = (s.fullName || "").toLowerCase();
+      const q = (searchQuery || "").toLowerCase().trim();
+      const qCity = (cityQuery || "").toLowerCase().trim();
+
+      if (q && !name.includes(q)) return false;
+
+      if (qCity) {
+        // derive a normalized city value from address whether it's an object or string
+        let addressStr = '';
+        let cityNorm = '';
+        if (s.address) {
+          if (typeof s.address === 'object') {
+            addressStr = Object.values(s.address).join(' ').toLowerCase();
+            cityNorm = (s.address.city || '').toString().toLowerCase();
+          } else {
+            addressStr = String(s.address).toLowerCase();
+            // try split by comma and take first non-empty token as city
+            const parts = addressStr.split(',').map(p => p.trim()).filter(Boolean);
+            cityNorm = parts.length ? parts[0].toLowerCase() : addressStr;
+          }
+        }
+
+        // match either the normalized city token OR anywhere inside the full address string
+        if (!(cityNorm.includes(qCity) || addressStr.includes(qCity))) return false;
+      }
+
+      if (genderFilter && genderFilter !== 'all') {
+        if (genderFilter === 'notset') return !s.gender;
+        return (s.gender || '').toLowerCase() === genderFilter;
+      }
+      return true;
+    });
+
+    if (genderSort && genderSort !== 'none') {
+      out = out.slice().sort((a, b) => {
+        const ga = (a.gender || '').toLowerCase();
+        const gb = (b.gender || '').toLowerCase();
+        const cmp = ga.localeCompare(gb);
+        return genderSort === 'asc' ? cmp : -cmp;
+      });
+    }
+
+    return out;
+  }, [students, searchQuery, cityQuery, genderFilter, genderSort]);
 
   if (loading) return <AppLayout><div style={{ padding: '20px', textAlign: 'center' }}>Loading students...</div></AppLayout>;
 
@@ -89,6 +142,45 @@ const AdminStudents = () => {
         </button>
       </div>
 
+      {/* SEARCH & FILTER CONTROLS */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'center' }}>
+        <input
+          type="text"
+          placeholder="Search student by name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ padding: 8, width: 280 }}
+        />
+
+          <input
+            type="text"
+            placeholder="Search by city..."
+            value={cityQuery}
+            onChange={(e) => setCityQuery(e.target.value)}
+            style={{ padding: 8, width: 200 }}
+          />
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          Gender:
+          <select value={genderFilter} onChange={e => setGenderFilter(e.target.value)} style={{ padding: 8 }}>
+            <option value="all">All</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+            <option value="notset">Not set</option>
+          </select>
+        </label>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          Sort By Seq:
+          <select value={genderSort} onChange={e => setGenderSort(e.target.value)} style={{ padding: 8 }}>
+            <option value="none">None</option>
+            <option value="asc">A → Z</option>
+            <option value="desc">Z → A</option>
+          </select>
+        </label>
+      </div>
+
       {/* STUDENT TABLE */}
       <table className="table table-bordered">
         <thead>
@@ -103,7 +195,7 @@ const AdminStudents = () => {
         </thead>
 
         <tbody>
-          {students.map((s) => (
+          {filteredStudents.map((s) => (
             <tr key={s._id}>
               {/* STUDENT PERSONAL INFO */}
               <td>
@@ -112,7 +204,7 @@ const AdminStudents = () => {
                 Phone: {s.phone || "-"} <br />
                 Gender: {s.gender || "Not set"} <br />
                 Age: {s.age || "Not set"} <br />
-                Address: {s.address && typeof s.address === 'object' 
+                Address: {s.address && typeof s.address === 'object'
                   ? `${s.address.street || ''}, ${s.address.city || ''}, ${s.address.state || ''} ${s.address.zipCode || ''}`.trim() || "Not available"
                   : s.address || "Not available"} <br />
                 Status:{" "}
@@ -182,11 +274,9 @@ const AdminStudents = () => {
               {/* PERFORMANCE SECTION */}
               <td>
                 Total Courses: {s.enrolledCourses?.length || 0} <br />
-                Completed Courses:{" "}
-                {s.enrolledCourses?.filter((c) => c.completed).length || 0}{" "}
+                Completed Courses: {s.enrolledCourses?.filter((c) => c.completed).length || 0} {" "}
                 <br />
-                Avg Progress:{" "}
-                {s.enrolledCourses?.length
+                Avg Progress: {s.enrolledCourses?.length
                   ? (
                       s.enrolledCourses.reduce(
                         (acc, c) => acc + c.progressPercentage,

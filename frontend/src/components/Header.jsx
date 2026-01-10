@@ -34,6 +34,9 @@ function Header({ onToggleSidebar, children }) {
     { type: 'page', id: 'leaderboard', title: 'Leaderboard', route: '/leaderboard' },
     { type: 'page', id: 'profile', title: 'Profile', route: '/profile' },
     { type: 'page', id: 'subscription', title: 'Subscription', route: '/subscription' },
+    { type: 'page', id: 'notes', title: 'Notes', route: '/student/notes' },
+    { type: 'page', id: 'admin-notes', title: 'Admin Notes', route: '/admin/notes' },
+    { type: 'page', id: 'enrolled-courses', title: 'Enrolled Courses', route: '/student/enrolled-courses' },
     { type: 'page', id: 'payment', title: 'Payment', route: '/payment' },
     { type: 'page', id: 'achievements', title: 'Achievements', route: '/student/achievements' },
     { type: 'page', id: 'activity', title: 'Activity', route: '/student/activity' },
@@ -71,6 +74,31 @@ function Header({ onToggleSidebar, children }) {
     if (!trimmed) {
       setSearchResults([]);
       return;
+    }
+    // Quick shortcuts: handle very common page keywords immediately
+    const tLower = trimmed.toLowerCase();
+    try {
+      if (['enrolled courses', 'enrolled course', 'my courses', 'my course', 'enrolled'].includes(tLower)) {
+        // Navigate to the enrolled-courses page (student view)
+        navigate('/student/enrolled-courses');
+        setSearchOpen(false);
+        setSearchQuery('');
+        setSearchResults([]);
+        return;
+      }
+
+      if (['notes', 'my notes'].includes(tLower)) {
+        const role = localStorage.getItem('userRole') || '';
+        if (role && role.toLowerCase().includes('admin')) navigate('/admin/notes');
+        else navigate('/student/notes');
+        setSearchOpen(false);
+        setSearchQuery('');
+        setSearchResults([]);
+        return;
+      }
+    } catch (e) {
+      // ignore navigation errors and continue with normal search
+      console.error('Shortcut navigation failed', e);
     }
     setSearchLoading(true);
     try {
@@ -148,6 +176,27 @@ function Header({ onToggleSidebar, children }) {
 
       const merged = Array.from(byRoute.values());
       setSearchResults(merged);
+
+      // If the query matches a known static route (exact or strong partial match), navigate directly.
+      const directMatch = merged.find(r => {
+        if (!r || !r.route) return false;
+        const title = (r.title || '').toLowerCase().trim();
+        const id = (r.id || '').toString().toLowerCase().trim();
+        // exact match first
+        if (title === trimmed.toLowerCase() || id === trimmed.toLowerCase()) return true;
+        // accept short partial matches for common pages (e.g., 'profile', 'dashboard', 'courses', 'subscription')
+        const short = ['profile','dashboard','courses','subscription','enrolled courses','my courses','subscriptions','notes'];
+        if (short.includes(trimmed.toLowerCase()) && title.includes(trimmed.toLowerCase())) return true;
+        return false;
+      });
+
+      if (directMatch) {
+        navigate(directMatch.route);
+        setSearchOpen(false);
+        setSearchQuery('');
+        setSearchResults([]);
+        return;
+      }
 
       // Auto-navigate if any course result matches (course-specific search behavior)
       const courseResults = merged.filter(r => r.type === 'course');

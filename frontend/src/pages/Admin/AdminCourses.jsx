@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import axiosClient from '../../api/axiosClient';
 import AppLayout from '../../components/AppLayout';
 import CreateCourseModal from '../../components/CreateCourseModal';
@@ -10,6 +10,9 @@ const AdminCourses = () => {
   const [showForm, setShowForm] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [deleteError, setDeleteError] = useState('');
+  // Search state
+  const [titleQuery, setTitleQuery] = useState('');
+  const [levelFilter, setLevelFilter] = useState('all');
 
   const loadCourses = async () => {
     try {
@@ -57,6 +60,18 @@ const AdminCourses = () => {
     loadCourses();
   }, []);
 
+  const filteredCourses = useMemo(() => {
+    let out = courses.filter((c) => {
+      const q = (titleQuery || '').toLowerCase().trim();
+      if (q && !(c.title || '').toLowerCase().includes(q)) return false;
+      if (levelFilter && levelFilter !== 'all') {
+        return (c.level || '').toLowerCase() === levelFilter;
+      }
+      return true;
+    });
+    return out;
+  }, [courses, titleQuery, levelFilter]);
+
   if (loading) return <AppLayout><div style={{ padding: '20px', textAlign: 'center' }}>Loading courses...</div></AppLayout>;
 
   return (
@@ -102,6 +117,24 @@ const AdminCourses = () => {
           {showForm ? "Hide Form" : "Add Course"}
         </button>
       </div>
+      {/* Search controls */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'center' }}>
+        <input
+          type="text"
+          placeholder="Search by title..."
+          value={titleQuery}
+          onChange={e => setTitleQuery(e.target.value)}
+          style={{ padding: 8, width: 280 }}
+        />
+
+        <select value={levelFilter} onChange={e => setLevelFilter(e.target.value)} style={{ padding: 8 }}>
+          <option value="all">All levels</option>
+          <option value="beginner">Beginner</option>
+          <option value="intermediate">Intermediate</option>
+          <option value="advance">Advance</option>
+        </select>
+      </div>
+
       <table className="table">
         <thead>
           <tr>
@@ -114,7 +147,7 @@ const AdminCourses = () => {
           </tr>
         </thead>
         <tbody>
-          {courses.map((c) => (
+          {filteredCourses.map((c) => (
             <tr key={c._id}>
               <td>{c.title}</td>
               <td>{c.category}</td>
