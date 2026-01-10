@@ -269,6 +269,29 @@ html, body, .main-content, .sidebar, .card, .header-wrapper, .dropdown-menu {
   stroke: var(--text) !important;
 }
 
+/* Dark mode sidebar hover styles - text should be black */
+.dark .sidebar .nav-link:hover {
+  color: #000 !important;
+  background-color: var(--bg);
+}
+.dark .sidebar .nav-link:hover .nav-icon {
+  color: #000 !important;
+}
+.dark .sidebar .nav-link:hover .nav-icon svg {
+  stroke: #000 !important;
+}
+
+/* Dark mode active link styles */
+.dark .sidebar .nav-link.active {
+  color: #fff !important;
+}
+.dark .sidebar .nav-link.active .nav-icon {
+  color: #fff !important;
+}
+.dark .sidebar .nav-link.active .nav-icon svg {
+  stroke: #fff !important;
+}
+
 /* Ensure header text is white in dark mode */
 .dark .header h1,
 .dark .header-wrapper .header-title,

@@ -287,3 +287,28 @@
 .dark .header-wrapper .btn {
   color: #fff !important;
 }
+
+/* Free Course button text should be white in admin dark mode */
+.dark .admin-students-page button:has(+ *)::after,
+.dark td button {
+  color: #fff !important;
+}
+
+/* More specific rule for Free Course button in table */
+.dark .table tbody tr td button[type="button"] {
+  color: #fff !important;
+}
+
+/* Target Free Courses section text specifically */
+.dark .table tbody tr td button {
+  color: #fff !important;
+}
+
+/* Admin Notes page - Upload button text should be white in dark mode */
+.dark .btn-primary {
+  color: #fff !important;
+}
+
+.dark form button.btn-primary {
+  color: #fff !important;
+}
