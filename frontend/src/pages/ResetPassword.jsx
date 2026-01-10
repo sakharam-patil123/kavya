@@ -24,7 +24,7 @@ export default function ResetPasswordPage(){
     if (password.length < 6) return setError('Password must be at least 6 characters');
     setLoading(true);
     try{
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
       const res = await fetch(`${API_BASE}/api/auth/reset-password`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ token, password }) });
       const jd = await res.json();
       if(!res.ok) setError(jd.message || 'Reset failed');

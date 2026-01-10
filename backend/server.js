@@ -79,6 +79,30 @@ app.use((req, res, next) => {
   next();
 });
 
+// Fallback CORS/logger for local development and debugging.
+// This ensures that when origin is localhost:5173 we explicitly send
+// Access-Control headers even if something upstream interferes.
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    console.log('🔎 Incoming Origin header:', origin);
+  }
+
+  // If request comes from local frontend during development, always set CORS headers
+  if (origin === 'http://localhost:5173' || origin === 'http://127.0.0.1:5173') {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+  }
+
+  next();
+});
+
 app.use(morgan('dev')); // HTTP request logger
 
 // Routes

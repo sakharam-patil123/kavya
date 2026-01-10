@@ -56,7 +56,7 @@ function LoginPage() {
     setSuccessMessage(""); // Clear success message when logging in
  
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
       const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -123,7 +123,7 @@ function LoginPage() {
               <button className="login-btn" onClick={async ()=>{
                 setRequestError(''); setRequestSuccess(''); setRequestLoading(true);
                 try {
-                  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+                  const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
                   const resp = await fetch(`${API_BASE}/api/auth/forgot-password`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email: requestEmail }) });
                   const jd = await resp.json();
                   if (!resp.ok) setRequestError(jd.message || 'Request failed');
@@ -177,7 +177,7 @@ function LoginPage() {
                 if (resetPassword.length < 6) return setResetError('Password must be at least 6 characters');
                 setResetLoading(true);
                 try {
-                  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+                  const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
                   const resp = await fetch(`${API_BASE}/api/auth/reset-password`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ token: resetToken, password: resetPassword }) });
                   const jd = await resp.json();
                   if (!resp.ok) {
