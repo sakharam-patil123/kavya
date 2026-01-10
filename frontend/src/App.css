@@ -258,6 +258,25 @@ html, body, .main-content, .sidebar, .card, .header-wrapper, .dropdown-menu {
   stroke: #fff;
 }
 
+/* Ensure sidebar text/icons are white in dark mode */
+.dark .sidebar .nav-link {
+  color: var(--text) !important;
+}
+.dark .sidebar .nav-link .nav-icon {
+  color: var(--text) !important;
+}
+.dark .sidebar .nav-link .nav-icon svg {
+  stroke: var(--text) !important;
+}
+
+/* Ensure header text is white in dark mode */
+.dark .header h1,
+.dark .header-wrapper .header-title,
+.dark .header p,
+.dark .header-wrapper .header-title * {
+  color: var(--text) !important;
+}
+
 /* MAIN CONTENT */
 .main-content {
   flex: 1;
@@ -588,7 +607,7 @@ ul {
   align-items: center;
   width: 100%;
   padding: 10px 16px;
-  background: white;
+  background: var(--header-bg);
   z-index: 999;
 }
 
