@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Star, Clock, ChevronRight, Users } from "lucide-react";
 import "../assets/Subscription.css";
 import AppLayout from "../components/AppLayout";
-import { useNavigate } from "react-router-dom"; // <-- Added
+import { useNavigate, useLocation } from "react-router-dom";
 
 // Static demo courses removed — subscription page relies only on backend course data
 // (This prevents five demo courses from appearing to students.)
@@ -31,9 +31,9 @@ const resolveCourseLogo = (course) => {
 };
 
 // CourseCard Component
-function CourseCard({ course, onEnroll }) {
+function CourseCard({ course, onEnroll, isHighlighted }) {
   return (
-    <div className="course-card">
+    <div className={`course-card ${isHighlighted ? 'course-card-highlighted' : ''}`} data-course-id={course.id}>
       <div className="course-card-content">
         {course.isPremium && <span className="premium-badge">PREMIUM</span>}
 
@@ -66,7 +66,11 @@ function CourseCard({ course, onEnroll }) {
           </div>
         </div>
 
-        <button onClick={() => onEnroll(course)} className="course-button">
+        <button 
+          onClick={() => onEnroll(course)} 
+          className={`course-button ${isHighlighted ? 'course-button-highlighted' : ''}`}
+          data-enroll-button={isHighlighted ? 'true' : undefined}
+        >
           Enroll Now
         </button>
       </div>
@@ -79,6 +83,9 @@ function CourseListing({ onCourseSelect }) {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState(null);
+  const [highlightedCourseId, setHighlightedCourseId] = useState(null);
+  const [courseNotFound, setCourseNotFound] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     // Fetch profile first (to determine role), then fetch courses
@@ -159,6 +166,46 @@ function CourseListing({ onCourseSelect }) {
     })();
   }, []);
 
+  // Handle courseId from URL params for highlighting
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const courseId = params.get('courseId');
+    
+    if (courseId && courses.length > 0) {
+      // Check if course exists
+      const courseExists = courses.some(c => c.id === courseId);
+      
+      if (courseExists) {
+        setHighlightedCourseId(courseId);
+        setCourseNotFound(false);
+        
+        // Scroll to highlighted course after a short delay
+        setTimeout(() => {
+          const courseCard = document.querySelector(`[data-course-id="${courseId}"]`);
+          if (courseCard) {
+            courseCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Highlight the enroll button
+            const enrollButton = courseCard.querySelector('[data-enroll-button="true"]');
+            if (enrollButton) {
+              enrollButton.focus();
+            }
+          }
+        }, 300);
+      } else {
+        setHighlightedCourseId(null);
+        setCourseNotFound(true);
+      }
+    } else if (courseId && !loading) {
+      // Course ID provided but no courses loaded yet, or course not found
+      setHighlightedCourseId(null);
+      setCourseNotFound(true);
+    } else {
+      setHighlightedCourseId(null);
+      setCourseNotFound(false);
+    }
+  }, [location.search, courses, loading]);
+
   if (loading) {
     return (
       <div className="course-listing">
@@ -174,6 +221,23 @@ function CourseListing({ onCourseSelect }) {
   return (
     <div className="course-listing">
       <div className="course-listing-container">
+        {courseNotFound && (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '30px', 
+            marginBottom: '20px',
+            background: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: '8px',
+            color: '#856404'
+          }}>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', fontWeight: '600' }}>Course Not Available</h3>
+            <p style={{ margin: '0', fontSize: '14px' }}>
+              The course you searched for could not be found. Please check the course name and try again.
+            </p>
+          </div>
+        )}
+        
         {courses.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
             <p>No courses available right now. Please check back later or contact support if this looks unexpected.</p>
@@ -186,6 +250,7 @@ function CourseListing({ onCourseSelect }) {
                 key={course.id}
                 course={course}
                 onEnroll={onCourseSelect}
+                isHighlighted={highlightedCourseId === course.id}
               />
             ))}
           </div>

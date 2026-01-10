@@ -232,3 +232,106 @@
     overflow-x: auto;
   }
 }
+
+/* Dark mode styles */
+.dark .student-courses h1 {
+  color: #ffffff;
+}
+
+.dark .empty-state {
+  background: #071029;
+  color: #ffffff;
+}
+
+.dark .empty-state h2 {
+  color: #ffffff;
+}
+
+.dark .empty-state p {
+  color: #9aa6bb;
+}
+
+.dark .btn-primary {
+  color: #ffffff;
+}
+
+.dark .btn-primary:hover {
+  color: #ffffff;
+}
+
+.dark .tab {
+  color: #9aa6bb;
+  border-bottom-color: transparent;
+}
+
+.dark .tab:hover {
+  color: #4aa3ff;
+}
+
+.dark .tab.active {
+  color: #4aa3ff;
+  border-bottom-color: #4aa3ff;
+}
+
+.dark .course-card {
+  background: #071029;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dark .course-body h3 {
+  color: #ffffff;
+}
+
+.dark .instructor {
+  color: #9aa6bb;
+}
+
+.dark .progress-info {
+  color: #ffffff;
+}
+
+.dark .progress-percentage {
+  color: #4aa3ff;
+}
+
+.dark .progress-bar {
+  background: #1f2a37;
+}
+
+.dark .progress-fill {
+  background: linear-gradient(90deg, #4aa3ff, #37afac);
+}
+
+.dark .course-stats {
+  background: #0f1724;
+}
+
+.dark .stat .label {
+  color: #9aa6bb;
+}
+
+.dark .stat .value {
+  color: #4aa3ff;
+}
+
+.dark .btn-continue {
+  color: #ffffff;
+}
+
+.dark .btn-continue:hover {
+  color: #ffffff;
+}
+
+/* Ensure all text is white in dark mode for student-courses */
+.dark .student-courses * {
+  color: #ffffff !important;
+}
+
+.dark .student-courses a {
+  color: #4aa3ff !important;
+}
+
+.dark .student-courses .muted,
+.dark .student-courses .instructor {
+  color: #9aa6bb !important;
+}
