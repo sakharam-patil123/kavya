@@ -6,6 +6,7 @@ const Schedule = require('../models/scheduleModel');
 const Event = require('../models/eventModel');
 const sendgrid = require('@sendgrid/mail');
 
+
 // Generate JWT Token
 const generateToken = (userId, userRole) => {
     if (!userRole) {
