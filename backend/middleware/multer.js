@@ -38,6 +38,32 @@ const uploadFiles = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: documentFilter,
 });
+// Disk storage for PDFs to be served from /uploads
+const path = require('path');
+const fs = require('fs');
+const pdfStoragePath = path.join(__dirname, '..', 'uploads', 'pdfs');
+if (!fs.existsSync(pdfStoragePath)) fs.mkdirSync(pdfStoragePath, { recursive: true });
 
-module.exports = { upload: uploadImages, uploadFiles };
+const pdfDiskStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, pdfStoragePath);
+  },
+  filename: function (req, file, cb) {
+    const safeName = Date.now() + '-' + file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+    cb(null, safeName);
+  }
+});
+
+const pdfFilter = (req, file, cb) => {
+  if (file.mimetype === 'application/pdf') cb(null, true);
+  else cb(new Error('Only PDF files are allowed'), false);
+};
+
+const uploadPdf = multer({
+  storage: pdfDiskStorage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+  fileFilter: pdfFilter,
+});
+
+module.exports = { upload: uploadImages, uploadFiles, uploadPdf };
 

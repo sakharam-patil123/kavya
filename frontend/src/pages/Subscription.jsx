@@ -302,12 +302,34 @@ function CourseDetail({ course, onBack }) {
           return;
         }
 
-        // If backend returned a conflict with existing enrollmentId, reuse it
+        // If backend returned a conflict with an existing enrollment
         if (res.status === 409) {
           const data = await res.json().catch(() => ({}));
-          const enrollmentId = data.enrollmentId;
-          if (enrollmentId) {
-            navigate(`/payment?courseId=${encodeURIComponent(qCourseId)}&title=${encodeURIComponent(qTitle)}&enrollmentId=${encodeURIComponent(enrollmentId)}`);
+
+          // If the existing enrollment is pending, reuse its id and continue to payment
+          if (data.enrollmentId && data.enrollmentStatus === 'pending') {
+            navigate(`/payment?courseId=${encodeURIComponent(qCourseId)}&title=${encodeURIComponent(qTitle)}&enrollmentId=${encodeURIComponent(data.enrollmentId)}`);
+            return;
+          }
+
+          // If enrollment already exists and is active or free, show a friendly alert
+          if (data.alreadyEnrolled || data.enrollmentStatus === 'active' || data.isFree || (data.purchaseStatus && String(data.purchaseStatus).toLowerCase() === 'free')) {
+            alert('You have already enrolled in this course.');
+            return;
+          }
+
+          // Fallback: if we have an enrollmentId but no status, open payment (rare)
+          if (data.enrollmentId) {
+            navigate(`/payment?courseId=${encodeURIComponent(qCourseId)}&title=${encodeURIComponent(qTitle)}&enrollmentId=${encodeURIComponent(data.enrollmentId)}`);
+            return;
+          }
+        }
+
+        // If backend returned a 400 with explanatory message (already enrolled), surface it
+        if (res.status === 400) {
+          const data = await res.json().catch(() => ({}));
+          if (data && /already enrolled/i.test(data.message || '')) {
+            alert('You have already enrolled in this course.');
             return;
           }
         }
