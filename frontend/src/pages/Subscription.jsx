@@ -3,6 +3,7 @@ import { ArrowLeft, Star, Clock, ChevronRight, Users } from "lucide-react";
 import "../assets/Subscription.css";
 import AppLayout from "../components/AppLayout";
 import { useNavigate, useLocation } from "react-router-dom";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 // Static demo courses removed — subscription page relies only on backend course data
 // (This prevents five demo courses from appearing to students.)
@@ -79,8 +80,7 @@ function CourseCard({ course, onEnroll, isFavorite, onToggleFavorite }) {
 
         <button 
           onClick={() => onEnroll(course)} 
-          className={`course-button ${isHighlighted ? 'course-button-highlighted' : ''}`}
-          data-enroll-button={isHighlighted ? 'true' : undefined}
+          className="course-button"
         >
           Enroll Now
         </button>
@@ -508,15 +508,17 @@ function Subscription() {
   };
 
   return (
-    <AppLayout showGreeting={false}>
-      <div className="app-container">
-        {selectedCourse ? (
-          <CourseDetail course={selectedCourse} onBack={handleBack} />
-        ) : (
-          <CourseListing onCourseSelect={handleCourseSelect} />
-        )}
-      </div>
-    </AppLayout>
+    <ErrorBoundary>
+      <AppLayout showGreeting={false}>
+        <div className="app-container">
+          {selectedCourse ? (
+            <CourseDetail course={selectedCourse} onBack={handleBack} />
+          ) : (
+            <CourseListing onCourseSelect={handleCourseSelect} />
+          )}
+        </div>
+      </AppLayout>
+    </ErrorBoundary>
   );
 }
 
