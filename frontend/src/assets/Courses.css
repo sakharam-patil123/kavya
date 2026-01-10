@@ -732,3 +732,79 @@
     text-align: center;
   }
 }
+
+/* ===== DARK MODE STYLES FOR CURRICULUM ===== */
+.dark .curriculum-panel {
+  background: #1a2332;
+  border-color: rgba(74, 163, 255, 0.1);
+}
+
+.dark .curriculum-header {
+  background: rgba(74, 163, 255, 0.08);
+  border-bottom-color: rgba(74, 163, 255, 0.1);
+}
+
+.dark .curriculum-header .header-icon {
+  color: #4aa3ff;
+}
+
+.dark .list-group-item {
+  background: #0f1724;
+  border-bottom-color: #1f2a37;
+  color: #000000;
+}
+
+.dark .lesson-title {
+  color: #000000;
+}
+
+.dark .lesson-duration {
+  color: #000000;
+}
+
+.dark .info-box {
+  background: #0f1724;
+  border-color: #1f2a37;
+  color: #000000;
+}
+
+.dark .muted {
+  color: #000000;
+}
+
+/* Dark mode button text colors */
+.dark .btn-learn {
+  background: #ffffff;
+  color: #ffffff;
+}
+
+.dark .btn-learn:hover {
+  background: #f2f2f2;
+  color: #ffffff;
+}
+
+.dark .btn-download {
+  background: #ffffff;
+  color: #ffffff;
+  opacity: 1;
+}
+
+.dark .btn-download:hover {
+  background: #f2f2f2;
+  color: #ffffff;
+  opacity: 1;
+}
+
+.dark .btn-continue {
+  background: #ffffff;
+  color: #ffffff;
+}
+
+.dark .btn-continue:hover {
+  background: #f2f2f2;
+  color: #ffffff;
+}
+
+.dark button[type="button"] {
+  color: #ffffff;
+}
