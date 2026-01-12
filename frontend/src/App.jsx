@@ -40,9 +40,7 @@ import StudentCourses from './pages/Student/StudentCourses';
 import StudentEnrolledCourses from './pages/Student/StudentEnrolledCourses';
 import StudentAchievements from './pages/Student/StudentAchievements';
 import StudentActivity from './pages/Student/StudentActivity';
-import StudentNotes from './pages/Student/StudentNotes';
-// Parent Pages
-import ParentDashboard from './pages/Parent/ParentDashboard';
+import StudentNotes from './pages/Student/StudentNotes';import Blocked from './pages/Blocked';// Parent Pages
 import StudentReport from './pages/Parent/StudentReport';
 
 
@@ -133,6 +131,9 @@ function Layout() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/reset-password" element={<Login />} />
+
+          {/* Blocked page for users who are blocked by admin */}
+          <Route path="/blocked" element={<Blocked />} />
          
         </Routes>
       </main>

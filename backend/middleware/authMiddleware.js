@@ -26,7 +26,13 @@ const protect = async (req, res, next) => {
         if (!user) {
             return res.status(401).json({ message: 'User not found' });
         }
-        console.log('User found:', { id: user._id, role: user.role, modelRole: user.get('role') });
+        console.log('User found:', { id: user._id, role: user.role, modelRole: user.get('role'), user_status: user.user_status });
+
+        // Deny access if user has been blocked by admin
+        if (user.user_status === 'Blocked') {
+            console.warn('Blocked user attempted access:', user._id);
+            return res.status(403).json({ message: 'Your account has been blocked by the administrator.' });
+        }
 
         // Set user info in request with role
         const userRole = decoded.role || user.role || 'student';
