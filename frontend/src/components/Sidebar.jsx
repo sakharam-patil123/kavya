@@ -46,11 +46,13 @@ function Sidebar({ isOpen, setIsOpen }) {
       // Enrolled Courses (visible only to students) - placed directly below Courses
       { path: "/student/enrolled-courses", label: "Enrolled Courses", icon: <FiBookOpen /> },
       { path: "/student/notes", label: "Notes", icon: <LuGalleryHorizontalEnd /> },
+      { path: "/student/announcements", label: "Announcements", icon: <LuGalleryHorizontalEnd /> },
     ] : []),
     
     // Admin items
     ...(userRole === 'admin' || userRole === 'sub-admin' ? [
       { path: "/admin/dashboard", label: "Admin Dashboard", icon: <TbReportAnalytics /> },
+      { path: "/admin/announcements", label: "Announcements", icon: <LuGalleryHorizontalEnd /> },
       { path: "/admin/students", label: "Manage Students", icon: <LuUser /> },
       { path: "/admin/courses", label: "Manage Courses", icon: <FiBookOpen /> },
       { path: "/admin/notes", label: "Notes", icon: <LuGalleryHorizontalEnd /> },
@@ -65,6 +67,7 @@ function Sidebar({ isOpen, setIsOpen }) {
       { path: "/instructor/students", label: "Students", icon: <LuUser /> },
       { path: "/instructor/lessons", label: "Manage Lessons", icon: <FiBookOpen /> },
       { path: "/instructor/analytics", label: "Analytics", icon: <TbReportAnalytics /> },
+      { path: "/instructor/announcements", label: "Announcements", icon: <LuGalleryHorizontalEnd /> },
     ] : []),
     
     // Subscriptions and Leaderboard - shown only to student users
@@ -76,7 +79,8 @@ function Sidebar({ isOpen, setIsOpen }) {
       },
     ] : []),
     ...(userRole === 'parent' ? [
-      { path: "/parent/student-report", label: "Student Reports", icon: <MdSchool /> }
+      { path: "/parent/student-report", label: "Student Reports", icon: <MdSchool /> },
+      { path: "/parent/announcements", label: "Announcements", icon: <LuGalleryHorizontalEnd /> }
     ] : []),
     ...(userRole !== 'parent' ? [
       { path: "/schedule", label: "Schedule", icon: <LuCalendar /> },

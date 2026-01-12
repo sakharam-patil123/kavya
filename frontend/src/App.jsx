@@ -24,6 +24,10 @@ import AdminCourses from './pages/Admin/AdminCourses';
 import AdminEnrollments from './pages/Admin/AdminEnrollments';
 import AdminNotes from './pages/Admin/AdminNotes';
 import AdminSettings from './pages/Admin/AdminSettings';
+import AdminAnnouncements from './pages/Admin/AdminAnnouncements';
+import StudentAnnouncements from './pages/Student/Announcements';
+import InstructorAnnouncements from './pages/Instructor/Announcements';
+import ParentAnnouncements from './pages/Parent/Announcements';
 // Instructor Pages
 import InstructorDashboard from './pages/Instructor/InstructorDashboard';
 import InstructorCourses from './pages/Instructor/InstructorCourses';
@@ -96,6 +100,7 @@ function Layout() {
           <Route path="/admin/enrollments" element={<ProtectedRoute requireAdmin={true}><AdminEnrollments /></ProtectedRoute>} />
           <Route path="/admin/notes" element={<ProtectedRoute requireAdmin={true}><AdminNotes /></ProtectedRoute>} />
           <Route path="/admin/settings" element={<ProtectedRoute requireAdmin={true}><AdminSettings /></ProtectedRoute>} />
+          <Route path="/admin/announcements" element={<ProtectedRoute requireAdmin={true}><AdminAnnouncements /></ProtectedRoute>} />
 
           {/* Instructor Routes */}
           <Route path="/instructor/dashboard" element={<ProtectedRoute requireRole="instructor"><InstructorDashboard /></ProtectedRoute>} />
@@ -103,6 +108,7 @@ function Layout() {
           <Route path="/instructor/students" element={<ProtectedRoute requireRole="instructor"><InstructorStudents /></ProtectedRoute>} />
           <Route path="/instructor/lessons" element={<ProtectedRoute requireRole="instructor"><InstructorLessons /></ProtectedRoute>} />
           <Route path="/instructor/analytics" element={<ProtectedRoute requireRole="instructor"><InstructorAnalytics /></ProtectedRoute>} />
+          <Route path="/instructor/announcements" element={<ProtectedRoute requireRole="instructor"><InstructorAnnouncements /></ProtectedRoute>} />
 
           {/* Student Routes */}
           <Route path="/dashboard" element={<ProtectedRoute requireRole="student"><Dashboard /></ProtectedRoute>} />
@@ -112,12 +118,14 @@ function Layout() {
           <Route path="/student/achievements" element={<ProtectedRoute requireRole="student"><StudentAchievements /></ProtectedRoute>} />
           <Route path="/student/activity" element={<ProtectedRoute requireRole="student"><StudentActivity /></ProtectedRoute>} />
           <Route path="/student/notes" element={<ProtectedRoute requireRole="student"><StudentNotes /></ProtectedRoute>} />
+          <Route path="/student/announcements" element={<ProtectedRoute requireRole="student"><StudentAnnouncements /></ProtectedRoute>} />
 
           {/* Public Routes */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/courses" element={<Courses />} />
           <Route path="/subscription" element={<Subscription />}></Route>
           <Route path="/parent/student-report" element={<ProtectedRoute requireRole="parent"><StudentReport /></ProtectedRoute>} />
+          <Route path="/parent/announcements" element={<ProtectedRoute requireRole="parent"><ParentAnnouncements /></ProtectedRoute>} />
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/payment" element={<PaymentInterface />}></Route>
           <Route path="/leaderboard" element={<Leaderboard />} />
