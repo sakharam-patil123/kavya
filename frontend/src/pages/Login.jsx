@@ -83,6 +83,8 @@ function LoginPage() {
         navigate("/instructor/dashboard");
       } else if (data.role === 'student') {
         navigate("/dashboard");
+      } else if (data.role === 'parent') {
+        navigate("/parent/dashboard");
       } else {
         navigate("/dashboard");
       }

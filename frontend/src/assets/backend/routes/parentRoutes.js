@@ -6,6 +6,7 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 router.use(protect);
 router.use(authorize('parent'));
 
+router.get('/dashboard', parentController.getDashboard);
 router.get('/students', parentController.getChildrenForParent);
 router.get('/student/:studentId/report', parentController.getStudentReport);
 router.post('/link', parentController.linkChild);
