@@ -114,7 +114,7 @@ function Sidebar({ isOpen, setIsOpen }) {
           top: 0,
           left: 0,
           height: "100vh",
-          width: "240px",
+          width: "260px",
           overflowY: "auto",
           transition: "transform 0.3s ease",
           transform:
