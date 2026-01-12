@@ -308,6 +308,22 @@ html, body, .main-content, .sidebar, .card, .header-wrapper, .dropdown-menu {
   /* background-color: #def2f4; */
   overflow-x: hidden;
   gap: 0px !important;
+  /* default margin-left zero; for wide screens we'll offset to account for fixed sidebar */
+  margin-left: 0;
+}
+
+/* On desktop, make room for the fixed sidebar so content doesn't sit underneath */
+@media (min-width: 1025px) {
+  .main-content {
+    margin-left: 260px; /* matches .sidebar width */
+  }
+}
+
+@media (max-width: 1024px) {
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 .dashboard header h1 {

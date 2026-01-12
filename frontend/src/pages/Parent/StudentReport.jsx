@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useLocation } from 'react-router-dom';
 import styles from './StudentReport.module.css';
 
 export default function StudentReport() {
+  const location = useLocation();
   const [children, setChildren] = useState([]);
   const [selectedChildId, setSelectedChildId] = useState(null);
   const [report, setReport] = useState(null);
@@ -25,7 +27,11 @@ export default function StudentReport() {
           headers: { Authorization: `Bearer ${token}` },
         });
         setChildren(res.data.children || []);
-        if (res.data.children && res.data.children.length === 1) {
+        // If a childId is passed via navigation state, prefer that selection
+        const passedChild = location?.state?.childId;
+        if (passedChild && res.data.children && res.data.children.find(c => c._id === passedChild)) {
+          setSelectedChildId(passedChild);
+        } else if (res.data.children && res.data.children.length === 1) {
           setSelectedChildId(res.data.children[0]._id);
         }
       } catch (err) {

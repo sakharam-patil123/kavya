@@ -76,6 +76,7 @@ function Sidebar({ isOpen, setIsOpen }) {
       },
     ] : []),
     ...(userRole === 'parent' ? [
+      { path: "/parent/dashboard", label: "Parent Dashboard", icon: <FiHome /> },
       { path: "/parent/student-report", label: "Student Reports", icon: <MdSchool /> }
     ] : []),
     ...(userRole !== 'parent' ? [
@@ -110,7 +111,7 @@ function Sidebar({ isOpen, setIsOpen }) {
           top: 0,
           left: 0,
           height: "100vh",
-          width: "240px",
+          width: "260px",
           overflowY: "auto",
           transition: "transform 0.3s ease",
           transform:

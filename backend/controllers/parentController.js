@@ -1,4 +1,6 @@
 const User = require('../models/userModel');
+const Notification = require('../models/notificationModel');
+const Event = require('../models/eventModel');
 
 // Get children linked to the parent
 exports.getChildrenForParent = async (req, res) => {
@@ -21,6 +23,43 @@ exports.getChildrenForParent = async (req, res) => {
 		res.json({ children });
 	} catch (err) {
 		console.error('getChildrenForParent error', err);
+		res.status(500).json({ message: err.message });
+	}
+};
+
+// Parent dashboard: children summaries, recent notifications, upcoming events
+exports.getDashboard = async (req, res) => {
+	try {
+		const parentId = req.user._id;
+		// children with some summary data
+		const parent = await User.findById(parentId).populate({
+			path: 'children',
+			select: '_id fullName email enrolledCourses achievements totalHoursLearned'
+		});
+		if (!parent) return res.status(404).json({ message: 'Parent not found' });
+
+		const children = (parent.children || []).map(c => ({
+			_id: c._id,
+			fullName: c.fullName,
+			email: c.email,
+			enrolledCount: Array.isArray(c.enrolledCourses) ? c.enrolledCourses.length : 0,
+			avgProgress: c.enrolledCourses && c.enrolledCourses.length ? Math.round(c.enrolledCourses.reduce((s, ec) => s + (ec.completionPercentage || 0), 0) / c.enrolledCourses.length) : 0,
+			totalHoursLearned: c.totalHoursLearned || 0,
+			recentAchievements: (c.achievements || []).slice(-3).reverse()
+		}));
+
+		// recent notifications for the parent
+		const notifications = await Notification.find({ userId: parentId }).sort({ createdAt: -1 }).limit(6);
+
+		// upcoming events (next 14 days)
+		const now = new Date();
+		const future = new Date();
+		future.setDate(now.getDate() + 14);
+		const upcomingEvents = await Event.find({ date: { $gte: now, $lte: future } }).sort({ date: 1 }).limit(6).select('title date startTime endTime location type');
+
+		res.json({ children, notifications, upcomingEvents });
+	} catch (err) {
+		console.error('getDashboard error', err);
 		res.status(500).json({ message: err.message });
 	}
 };

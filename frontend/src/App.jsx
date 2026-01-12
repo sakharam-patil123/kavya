@@ -38,6 +38,7 @@ import StudentAchievements from './pages/Student/StudentAchievements';
 import StudentActivity from './pages/Student/StudentActivity';
 import StudentNotes from './pages/Student/StudentNotes';
 // Parent Pages
+import ParentDashboard from './pages/Parent/ParentDashboard';
 import StudentReport from './pages/Parent/StudentReport';
 
 
@@ -117,6 +118,7 @@ function Layout() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/courses" element={<Courses />} />
           <Route path="/subscription" element={<Subscription />}></Route>
+          <Route path="/parent/dashboard" element={<ProtectedRoute requireRole="parent"><ParentDashboard /></ProtectedRoute>} />
           <Route path="/parent/student-report" element={<ProtectedRoute requireRole="parent"><StudentReport /></ProtectedRoute>} />
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/payment" element={<PaymentInterface />}></Route>
