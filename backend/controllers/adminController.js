@@ -72,6 +72,54 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
+// Block user
+exports.blockUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.user_status = 'Blocked';
+    await user.save();
+
+    await ActivityLog.create({
+      action: 'block_user',
+      performedBy: req.user._id,
+      targetType: 'User',
+      targetId: user._id,
+      details: { email: user.email, fullName: user.fullName }
+    });
+
+    res.json({ message: 'User blocked successfully', user });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+// Unblock user
+exports.unblockUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.user_status = 'Active';
+    await user.save();
+
+    await ActivityLog.create({
+      action: 'unblock_user',
+      performedBy: req.user._id,
+      targetType: 'User',
+      targetId: user._id,
+      details: { email: user.email, fullName: user.fullName }
+    });
+
+    res.json({ message: 'User unblocked successfully', user });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+
+
 // --- Courses (Admin) ---
 exports.createCourse = async (req, res) => {
   try {

@@ -15,4 +15,23 @@ axiosClient.interceptors.request.use((config) => {
   return config;
 });
 
+// Global response interceptor to handle blocked users
+axiosClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const message = error?.response?.data?.message || '';
+    if (status === 403 && /blocked/i.test(message)) {
+      // Clear token and redirect to blocked page
+      try {
+        localStorage.removeItem('token');
+        window.location = '/blocked';
+      } catch (err) {
+        console.error('Error handling blocked redirect', err);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default axiosClient;

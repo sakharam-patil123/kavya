@@ -78,6 +78,9 @@ const userSchema = new mongoose.Schema(
       country: String,
     },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+    // New field to represent whether user is allowed to access the system
+    // 'Active' means normal; 'Blocked' means administrator has blocked the user
+    user_status: { type: String, enum: ['Active', 'Blocked'], default: 'Active' },
     avatar: { type: String },
     // Achievement streak system
     lastLoginDate: { type: Date },

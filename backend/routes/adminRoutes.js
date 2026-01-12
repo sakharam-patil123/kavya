@@ -3,6 +3,9 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/authMiddleware');
 const { requirePermission } = require('../middleware/permissionMiddleware');
 const admin = require('../controllers/adminController');
+
+// Debug: confirm admin routes module loaded
+console.log('➡️  Admin routes loaded and registered');
 // Notes routes removed (feature reverted)
 
 // Users (admin or sub-admin with manageStudents permission)
@@ -11,6 +14,10 @@ router.get('/users', protect, authorize('admin','sub-admin'), requirePermission(
 router.get('/users/:id', protect, authorize('admin','sub-admin'), requirePermission('manageStudents'), admin.getUser);
 router.put('/users/:id', protect, authorize('admin','sub-admin'), requirePermission('manageStudents'), admin.updateUser);
 router.delete('/users/:id', protect, authorize('admin'), admin.deleteUser); // only admin can delete users
+
+// Block / Unblock user (admin or sub-admin with manageStudents permission)
+router.put('/users/:id/block', protect, authorize('admin','sub-admin'), requirePermission('manageStudents'), admin.blockUser);
+router.put('/users/:id/unblock', protect, authorize('admin','sub-admin'), requirePermission('manageStudents'), admin.unblockUser);
 
 // Courses (admin or sub-admin with manageCourses)
 router.post('/courses', protect, authorize('admin','sub-admin'), requirePermission('manageCourses'), admin.createCourse);

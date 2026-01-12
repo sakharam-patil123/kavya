@@ -110,6 +110,11 @@ exports.loginUser = async (req, res) => {
 
         // Check if user exists and password matches
         if (user && (await user.matchPassword(password))) {
+            // Deny login for blocked users
+            if (user.user_status === 'Blocked') {
+                return res.status(403).json({ message: 'Your account has been blocked by the administrator.' });
+            }
+
             // Check if this is first login
             const isFirstLogin = user.firstLogin;
             

@@ -191,6 +191,7 @@ const AdminStudents = () => {
             <th>Free Course</th>
             <th>Performance</th>
             <th>Achievements</th>
+            <th>Actions</th>
           </tr>
         </thead>
 
@@ -300,6 +301,51 @@ const AdminStudents = () => {
                   ))
                 ) : (
                   <span className="text-muted">No achievements</span>
+                )}
+              </td>
+
+              {/* BLOCK / UNBLOCK ACTION */}
+              <td>
+                {/* Show current block status */}
+                <div style={{ marginBottom: 8 }}>
+                  <strong>Account:</strong>{' '}
+                  <span className={`badge bg-${s.user_status === 'Blocked' ? 'danger' : 'success'}`}>
+                    {s.user_status || 'Active'}
+                  </span>
+                </div>
+                {/* Block / Unblock button */}
+                {s.user_status === 'Blocked' ? (
+                  <button
+                    className="btn btn-sm"
+                    style={{ backgroundColor: 'green', color: 'white', border: '1px solid green', width: '80px', height: '30px', padding: '2px 8px' }}
+                    onClick={async () => {
+                      if (!window.confirm(`Unblock ${s.fullName}?`)) return;
+                      try {
+                        await axiosClient.put(`/api/admin/users/${s._id}/unblock`);
+                        await loadStudents();
+                      } catch (err) {
+                        alert(err?.response?.data?.message || 'Failed to unblock user');
+                      }
+                    }}
+                  >
+                    Unblock
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-sm"
+                    style={{ backgroundColor: 'red', color: 'black', border: '1px solid red', width: '80px', height: '30px', padding: '2px 8px' }}
+                    onClick={async () => {
+                      if (!window.confirm(`Block ${s.fullName}? This will prevent them from logging in and accessing protected content.`)) return;
+                      try {
+                        await axiosClient.put(`/api/admin/users/${s._id}/block`);
+                        await loadStudents();
+                      } catch (err) {
+                        alert(err?.response?.data?.message || 'Failed to block user');
+                      }
+                    }}
+                  >
+                    Block
+                  </button>
                 )}
               </td>
             </tr>

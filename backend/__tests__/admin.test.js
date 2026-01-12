@@ -62,8 +62,31 @@ const testRunner = async () => {
     }, { headers: adminHeaders });
     console.log('✓ Enrollment created:', enrollRes.data._id);
 
-    // 6. Get dashboard summary
-    console.log('\n6. Fetching dashboard summary...');
+    // 6. Block the student and verify login denied
+    console.log('\n6. Blocking the student...');
+    const blockRes = await api.put(`/api/admin/users/${studentId}/block`, {}, { headers: adminHeaders });
+    console.log('✓ Student blocked:', blockRes.data.message);
+
+    console.log('\n7. Attempting to login as blocked student (should be rejected)...');
+    try {
+      await api.post('/api/auth/login', { email: 'student@example.com', password: 'password123' });
+      console.error('✗ Login succeeded unexpectedly for blocked user');
+      process.exit(1);
+    } catch (err) {
+      console.log('✓ Blocked user login rejected as expected:', err.response?.data || err.message);
+    }
+
+    // 8. Unblock and re-login
+    console.log('\n8. Unblocking the student...');
+    const unblockRes = await api.put(`/api/admin/users/${studentId}/unblock`, {}, { headers: adminHeaders });
+    console.log('✓ Student unblocked:', unblockRes.data.message);
+
+    console.log('\n9. Attempting to login as unblocked student (should succeed)...');
+    const studentLogin = await api.post('/api/auth/login', { email: 'student@example.com', password: 'password123' });
+    console.log('✓ Student login succeeded after unblock, token length:', (studentLogin.data.token || '').length);
+
+    // 10. Get dashboard summary
+    console.log('\n10. Fetching dashboard summary...');
     const summaryRes = await api.get('/api/admin/dashboard/summary', { headers: adminHeaders });
     console.log('✓ Dashboard Summary:', {
       totalStudents: summaryRes.data.totalStudents,
