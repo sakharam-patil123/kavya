@@ -5,6 +5,7 @@ const MessageSchema = new mongoose.Schema({
   to: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   text: { type: String, required: true },
   read: { type: Boolean, default: false },
+  deletedFor: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Track which users have deleted this message
 }, { timestamps: true });
 
 module.exports = mongoose.model('Message', MessageSchema);
