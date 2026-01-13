@@ -435,6 +435,19 @@ const getWeeklyStats = async (req, res) => {
     }
 };
 
+// @desc    List all students (minimal fields) - accessible to authenticated users
+// @route   GET /api/users/students
+// @access  Private
+const listStudentsPublic = async (req, res) => {
+    try {
+        // Return basic info for all users with role 'student'
+        const students = await User.find({ role: 'student' }).select('fullName email avatar');
+        res.json({ data: students });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // @desc    Update user's weekly stats
 // @route   PUT /api/users/weekly-stats
 // @access  Private
@@ -469,4 +482,5 @@ module.exports = {
     uploadPhoto,
     getStreak
     ,getWeeklyStats, updateWeeklyStats
+    ,listStudentsPublic
 };

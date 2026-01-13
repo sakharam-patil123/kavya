@@ -1,0 +1,110 @@
+const mongoose = require('mongoose');
+const Message = require('../models/messageModel');
+const User = require('../models/userModel');
+const { getIo } = require('../sockets/io');
+
+// Create a message from current user to `to`
+exports.sendMessage = async (req, res) => {
+  try {
+    const fromId = req.user._id;
+    const { to, text } = req.body;
+    if (!to || !text) return res.status(400).json({ message: 'Missing `to` or `text`' });
+
+    // Basic validation: ensure recipient exists
+    const recipient = await User.findById(to).select('_id fullName email');
+    if (!recipient) return res.status(404).json({ message: 'Recipient not found' });
+
+    const msg = await Message.create({ from: fromId, to, text });
+    // Emit realtime event if socket.io is available
+    try {
+      const io = getIo();
+      if (io) {
+        io.to(`user:${to}`).emit('new_message', { from: fromId, to, text, createdAt: msg.createdAt });
+        io.to(`user:${fromId}`).emit('new_message', { from: fromId, to, text, createdAt: msg.createdAt });
+      }
+    } catch (e) {
+      console.warn('Failed to emit socket message', e?.message || e);
+    }
+
+    return res.status(201).json({ data: msg });
+  } catch (err) {
+    console.error('sendMessage error', err);
+    return res.status(500).json({ message: 'Failed to send message' });
+  }
+};
+
+// Get conversation between current user and another user (userId param)
+exports.getConversation = async (req, res) => {
+  try {
+    const me = req.user._id;
+    const other = req.params.userId || req.query.userId;
+    if (!other) return res.status(400).json({ message: 'Missing userId' });
+
+    const msgs = await Message.find({
+      $or: [
+        { from: me, to: other },
+        { from: other, to: me },
+      ]
+    }).sort('createdAt').lean();
+
+    return res.json({ data: msgs });
+  } catch (err) {
+    console.error('getConversation error', err);
+    return res.status(500).json({ message: 'Failed to load conversation' });
+  }
+};
+
+// Optional: list recent conversations involving current user (brief summary)
+exports.listRecent = async (req, res) => {
+  try {
+    const me = req.user._id;
+    // Aggregate per-conversation summary: other user id, last message, lastAt, unreadCount
+    const pipeline = [
+      { $match: { $or: [{ from: me }, { to: me }] } },
+      { $sort: { createdAt: -1 } },
+      { $group: {
+        _id: { $cond: [{ $eq: ['$from', me] }, '$to', '$from'] },
+        lastMessage: { $first: '$text' },
+        lastFrom: { $first: '$from' },
+        lastAt: { $first: '$createdAt' }
+      } },
+      // Count unread messages per conversation (to me and read: false)
+      { $lookup: {
+        from: 'messages',
+        let: { otherId: '$_id' },
+        pipeline: [
+          { $match: { $expr: { $and: [ { $eq: ['$from', '$$otherId'] }, { $eq: ['$to', mongoose.Types.ObjectId(String(me))] }, { $eq: ['$read', false] } ] } } },
+          { $count: 'count' }
+        ],
+        as: 'unreadInfo'
+      } },
+      { $addFields: { unreadCount: { $ifNull: [ { $arrayElemAt: ['$unreadInfo.count', 0] }, 0 ] } } },
+      { $project: { _id: 1, lastMessage: 1, lastFrom: 1, lastAt: 1, unreadCount: 1 } },
+      { $sort: { lastAt: -1 } },
+      { $limit: 50 }
+    ];
+
+    // Use mongoose to run aggregation; require mongoose here to convert ObjectId
+    const mongoose = require('mongoose');
+    const summaries = await Message.aggregate(pipeline);
+    return res.json({ data: summaries });
+  } catch (err) {
+    console.error('listRecent error', err);
+    return res.status(500).json({ message: 'Failed to list recent conversations' });
+  }
+};
+
+// Mark messages from a specific user as read (messages where from=other and to=me)
+exports.markRead = async (req, res) => {
+  try {
+    const me = req.user._id;
+    const other = req.params.userId;
+    if (!other) return res.status(400).json({ message: 'Missing userId' });
+
+    const result = await Message.updateMany({ from: other, to: me, read: false }, { $set: { read: true } });
+    return res.json({ message: 'Marked read', modifiedCount: result.modifiedCount || result.nModified || 0 });
+  } catch (err) {
+    console.error('markRead error', err);
+    return res.status(500).json({ message: 'Failed to mark messages read' });
+  }
+};

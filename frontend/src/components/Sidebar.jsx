@@ -10,7 +10,7 @@ import {
   LuGalleryHorizontalEnd,
 } from "react-icons/lu";
 import { TbReportAnalytics } from "react-icons/tb";
-import { MdSchool } from "react-icons/md";
+import { MdSchool, MdMessage } from "react-icons/md";
 import logo from "../assets/logo.png";
 
 function Sidebar({ isOpen, setIsOpen }) {
@@ -47,6 +47,7 @@ function Sidebar({ isOpen, setIsOpen }) {
       { path: "/student/enrolled-courses", label: "Enrolled Courses", icon: <FiBookOpen /> },
       { path: "/student/notes", label: "Notes", icon: <LuGalleryHorizontalEnd /> },
       { path: "/student/announcements", label: "Announcements", icon: <LuGalleryHorizontalEnd /> },
+      ...(userRole === 'student' ? [{ path: "/messages", label: "Messages", icon: <MdMessage /> }] : []),
     ] : []),
     
     // Admin items
@@ -80,7 +81,8 @@ function Sidebar({ isOpen, setIsOpen }) {
     ] : []),
     ...(userRole === 'parent' ? [
       { path: "/parent/student-report", label: "Student Reports", icon: <MdSchool /> },
-      { path: "/parent/announcements", label: "Announcements", icon: <LuGalleryHorizontalEnd /> }
+      { path: "/parent/announcements", label: "Announcements", icon: <LuGalleryHorizontalEnd /> },
+      { path: "/messages", label: "Messages", icon: <MdMessage /> }
     ] : []),
     ...(userRole !== 'parent' ? [
       { path: "/schedule", label: "Schedule", icon: <LuCalendar /> },
