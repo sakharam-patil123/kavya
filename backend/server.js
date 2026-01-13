@@ -127,6 +127,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const searchRoutes = require('./routes/searchRoutes');
+const messageRoutes = require('./routes/messageRoutes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -148,6 +149,7 @@ app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/parents', parentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/schedule', scheduleRoutes);
+app.use('/api/messages', messageRoutes);
 // app.use('/api/uploads', uploadRoutes);
 
 // Ensure uploads folder exists and serve statically so uploaded PDFs are accessible
@@ -220,6 +222,25 @@ const server = app.listen(PORT, () => {
 📝 MongoDB URI: ${process.env.MONGO_URI}
   `);
 });
+
+// Setup Socket.IO for real-time messaging
+try {
+  const { Server } = require('socket.io');
+  const io = new Server(server, {
+    cors: {
+      origin: allowAll ? '*' : allowedOrigins,
+      methods: ['GET', 'POST']
+    }
+  });
+
+  const { setIo } = require('./sockets/io');
+  setIo(io);
+  // attach socket handlers
+  require('./sockets/messageSocket')(io);
+  console.log('➡️ Socket.IO initialized');
+} catch (err) {
+  console.warn('Socket.IO not initialized:', err?.message || err);
+}
 
 // Graceful shutdown handler for SIGTERM (Railway, Docker, etc.)
 const gracefulShutdown = async (signal) => {

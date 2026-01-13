@@ -78,6 +78,35 @@ function Header({ onToggleSidebar, children }) {
     // Quick shortcuts: handle very common page keywords immediately
     const tLower = trimmed.toLowerCase();
     try {
+      // Admin-specific shortcuts (only when logged in as admin)
+      const role = localStorage.getItem('userRole') || '';
+      const isAdmin = role && role.toLowerCase().includes('admin');
+      if (isAdmin) {
+        if (['manage student', 'manage students', 'manage student page', 'students', 'student management'].includes(tLower)) {
+          navigate('/admin/students');
+          setSearchOpen(false);
+          setSearchQuery('');
+          setSearchResults([]);
+          return;
+        }
+
+        if (['manage courses', 'manage course', 'manage course page', 'courses', 'course management'].includes(tLower)) {
+          navigate('/admin/courses');
+          setSearchOpen(false);
+          setSearchQuery('');
+          setSearchResults([]);
+          return;
+        }
+
+        if (['admin setting', 'admin settings', 'manage settings', 'settings', 'manage admin setting'].includes(tLower)) {
+          navigate('/admin/settings');
+          setSearchOpen(false);
+          setSearchQuery('');
+          setSearchResults([]);
+          return;
+        }
+      }
+
       if (['enrolled courses', 'enrolled course', 'my courses', 'my course', 'enrolled'].includes(tLower)) {
         // Navigate to the enrolled-courses page (student view)
         navigate('/student/enrolled-courses');
@@ -88,8 +117,8 @@ function Header({ onToggleSidebar, children }) {
       }
 
       if (['notes', 'my notes'].includes(tLower)) {
-        const role = localStorage.getItem('userRole') || '';
-        if (role && role.toLowerCase().includes('admin')) navigate('/admin/notes');
+        const roleLocal = localStorage.getItem('userRole') || '';
+        if (roleLocal && roleLocal.toLowerCase().includes('admin')) navigate('/admin/notes');
         else navigate('/student/notes');
         setSearchOpen(false);
         setSearchQuery('');

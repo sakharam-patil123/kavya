@@ -1,0 +1,354 @@
+import React, { useEffect, useState, useRef } from 'react';
+import AppLayout from '../components/AppLayout';
+import axiosClient from '../api/axiosClient';
+import { io as ioClient } from 'socket.io-client';
+
+export default function Messages() {
+  const [students, setStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const endRef = useRef(null);
+
+  useEffect(() => {
+    const loadStudents = async () => {
+      setLoadingStudents(true);
+      try {
+        const storedUser = (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch (e) { return {}; } })();
+        const userRole = localStorage.getItem('userRole') || storedUser.role || storedUser.userRole || storedUser?.role;
+        const meId = storedUser._id || localStorage.getItem('userId');
+        let res;
+        if (userRole === 'admin' || userRole === 'sub-admin') {
+          res = await axiosClient.get('/api/admin/users?role=student');
+        } else if (userRole === 'instructor') {
+          res = await axiosClient.get('/api/instructor/students');
+        } else if (userRole === 'student') {
+          // Allow students to see other students via a lightweight endpoint
+          res = await axiosClient.get('/api/users/students');
+        } else if (userRole === 'parent') {
+          // parents typically see only their children; attempt parent dashboard endpoint
+          try {
+            const r = await axiosClient.get('/api/parents/dashboard');
+            // parents endpoint returns { children, ... }
+            const list = (r.data?.children) || [];
+            setStudents(list.map(c => ({ _id: c._id || c.id, fullName: c.fullName || c.name, email: c.email })));
+            setLoadingStudents(false);
+            return;
+          } catch (err) {
+            // fallthrough
+            res = null;
+          }
+        } else {
+          // Not admin/instructor/parent — try instructor endpoint first then admin
+          try {
+            res = await axiosClient.get('/api/instructor/students');
+          } catch (e) {
+            res = await axiosClient.get('/api/admin/users?role=student');
+          }
+        }
+
+        let list = res ? (res.data.data || res.data || []) : [];
+
+        // normalize students to simple objects
+        list = list.map(s => ({ _id: s._id || s._id?.toString(), fullName: s.fullName || s.name || s.fullName, email: s.email }));
+
+        // Fetch recent conversation summaries and merge (server-provided ordering)
+        try {
+          const rec = await axiosClient.get('/api/messages');
+          const summaries = rec.data.data || [];
+          const summaryMap = {};
+          const missingSummaries = [];
+          summaries.forEach((sr) => {
+            // support multiple possible id fields returned by server
+            const candidateIds = [];
+            if (sr._id) candidateIds.push(String(sr._id));
+            if (sr.userId) candidateIds.push(String(sr.userId));
+            if (sr.participant) candidateIds.push(String(sr.participant));
+            if (Array.isArray(sr.participants)) {
+              sr.participants.forEach(p => candidateIds.push(String(p)));
+            }
+            // if server returned conversation object with otherId field
+            if (sr.otherId) candidateIds.push(String(sr.otherId));
+
+            const data = {
+              lastMessage: sr.lastMessage,
+              lastAt: sr.lastAt,
+              unreadCount: sr.unreadCount || 0,
+            };
+
+            let matched = false;
+            candidateIds.forEach((id) => {
+              if (!id) return;
+              summaryMap[id] = data;
+              // track missing participants to add to list later
+              matched = matched || list.some(s => String(s._id) === String(id));
+            });
+            if (!matched && candidateIds.length > 0) missingSummaries.push({ id: candidateIds[0], data });
+          });
+
+          // Merge summaries into existing list
+          list = list.map(s => {
+            const key = String(s._id);
+            if (summaryMap[key]) return { ...s, ...summaryMap[key] };
+            return s;
+          });
+
+          // Prepend any missing participants (stubs) so recent chats appear on top for new logins
+          if (missingSummaries.length > 0) {
+            const stubs = missingSummaries.map(ms => ({ _id: ms.id, fullName: 'Unknown', email: '', lastMessage: ms.data.lastMessage, lastAt: ms.data.lastAt, unreadCount: ms.data.unreadCount }));
+            list = [...stubs, ...list];
+          }
+
+          // Sort by lastAt desc, fallback to name
+          list.sort((a, b) => {
+            const ta = a.lastAt ? new Date(a.lastAt).getTime() : 0;
+            const tb = b.lastAt ? new Date(b.lastAt).getTime() : 0;
+            if (ta === tb) return (a.fullName || '').localeCompare(b.fullName || '');
+            return tb - ta;
+          });
+        } catch (e) {
+          // ignore recent fetch errors; keep list as-is
+          console.warn('Could not fetch recent conversations', e?.message || e);
+        }
+
+        setStudents(list);
+      } catch (err) {
+        console.error('Failed loading students', err?.response?.data || err.message || err);
+        // If forbidden, show empty but set an informative placeholder
+        if (err?.response?.status === 403) {
+          setStudents([]);
+          setLoadingStudents(false);
+          return;
+        }
+        setStudents([]);
+      } finally {
+        setLoadingStudents(false);
+      }
+    };
+    loadStudents();
+  }, []);
+
+  // Move a student to the top of the students list (optionally update preview/lastAt/unread)
+  const promoteStudent = (studentId, preview, opts = {}) => {
+    setStudents(prev => {
+      const idx = prev.findIndex(s => String(s._id) === String(studentId));
+      if (idx !== -1) {
+        const item = { ...prev[idx] };
+        if (preview) item.lastMessage = preview;
+        if (opts.lastAt) item.lastAt = opts.lastAt;
+        if (typeof opts.unreadInc === 'number') item.unreadCount = (item.unreadCount || 0) + opts.unreadInc;
+        const rest = prev.slice(0, idx).concat(prev.slice(idx + 1));
+        return [item, ...rest];
+      }
+      // If not found, create a stub entry at top
+      const newItem = {
+        _id: studentId,
+        fullName: opts.fullName || 'Unknown',
+        email: opts.email || '',
+        lastMessage: preview || '',
+        lastAt: opts.lastAt || new Date().toISOString(),
+        unreadCount: opts.unreadInc || 0
+      };
+      return [newItem, ...prev];
+    });
+  };
+
+  // Socket.IO realtime connection
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    const socketUrl = import.meta.env.VITE_API_BASE_URL || '';
+    const socket = ioClient(socketUrl, { transports: ['websocket', 'polling'] });
+
+    socket.on('connect', () => {
+      socket.emit('auth', token);
+    });
+
+    socket.on('new_message', (msg) => {
+      const meId = (JSON.parse(localStorage.getItem('user')||'{}'))._id || localStorage.getItem('userId');
+      const otherParticipant = String(msg.from) === String(meId) ? String(msg.to) : String(msg.from);
+      const senderIsMe = String(msg.from) === String(meId);
+
+      // If the conversation is open with this participant, append message and mark read
+      if (selectedStudent && String(selectedStudent._id) === String(otherParticipant)) {
+        setMessages(m => [...m, { sender: senderIsMe ? 'me' : 'them', text: msg.text, createdAt: msg.createdAt }]);
+        if (!senderIsMe) {
+          axiosClient.post(`/api/messages/${otherParticipant}/read`).catch(() => {});
+          // clear unread locally and update preview
+          promoteStudent(otherParticipant, msg.text, { lastAt: msg.createdAt, unreadInc: 0 });
+        } else {
+          promoteStudent(otherParticipant, msg.text, { lastAt: msg.createdAt });
+        }
+        return;
+      }
+
+      // Conversation not open: promote participant to top, increment unread if incoming
+      const isIncoming = String(msg.to) === String(meId);
+      promoteStudent(otherParticipant, msg.text, { lastAt: msg.createdAt, unreadInc: isIncoming ? 1 : 0 });
+    });
+
+    socket.on('authenticated', () => {});
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [selectedStudent]);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const loadConversation = async (student) => {
+    setSelectedStudent(student);
+    setLoadingMsgs(true);
+    try {
+      // Try common REST pattern first
+      const res = await axiosClient.get(`/api/messages/${student._id}`);
+      // Normalize server messages to `{ sender: 'me'|'them', text, createdAt }`
+      const meId = (() => { try { return (JSON.parse(localStorage.getItem('user')||'{}'))._id || localStorage.getItem('userId'); } catch (e) { return localStorage.getItem('userId'); } })();
+      const raw = res.data.data || res.data || [];
+      const normalized = (raw || []).map(msg => ({
+        sender: String(msg.from) === String(meId) ? 'me' : 'them',
+        text: msg.text || msg.body || '',
+        createdAt: msg.createdAt || msg.created_at || msg.updatedAt || new Date().toISOString()
+      }));
+      setMessages(normalized);
+      // Promote the student entry to the top when opening the conversation
+      promoteStudent(student._id);
+      // Mark messages as read on server and clear unread locally
+      try {
+        await axiosClient.post(`/api/messages/${student._id}/read`);
+      } catch (e) {}
+      setStudents(prev => prev.map(s => s._id === student._id ? { ...s, unreadCount: 0 } : s));
+    } catch (err) {
+      // If endpoint not available, attempt a query-based endpoint
+      try {
+        const res2 = await axiosClient.get('/api/messages', { params: { userId: student._id } });
+        const meId2 = (() => { try { return (JSON.parse(localStorage.getItem('user')||'{}'))._id || localStorage.getItem('userId'); } catch (e) { return localStorage.getItem('userId'); } })();
+        const raw2 = res2.data.data || res2.data || [];
+        const normalized2 = (raw2 || []).map(msg => ({
+          sender: String(msg.from) === String(meId2) ? 'me' : 'them',
+          text: msg.text || msg.body || '',
+          createdAt: msg.createdAt || msg.created_at || msg.updatedAt || new Date().toISOString()
+        }));
+        setMessages(normalized2);
+        promoteStudent(student._id);
+          try {
+            await axiosClient.post(`/api/messages/${student._id}/read`);
+          } catch (e) {}
+          setStudents(prev => prev.map(s => s._id === student._id ? { ...s, unreadCount: 0 } : s));
+      } catch (err2) {
+        // No backend messages yet — fallback to empty conversation
+        setMessages([]);
+      }
+    } finally {
+      setLoadingMsgs(false);
+    }
+  };
+
+  const handleSend = async (e) => {
+    e?.preventDefault();
+    if (!input.trim() || !selectedStudent) return;
+    const text = input.trim();
+
+    // Optimistic UI append with precise timestamp
+    const now = new Date().toISOString();
+    const outgoing = { sender: 'me', text, to: selectedStudent._id, createdAt: now };
+    setMessages((m) => [...m, outgoing]);
+    setInput('');
+
+    // Promote the recipient to top immediately (WhatsApp-like) and set lastAt
+    promoteStudent(selectedStudent._id, text, { lastAt: now });
+
+    try {
+      await axiosClient.post('/api/messages', { to: selectedStudent._id, text });
+      // Ideally backend returns saved message — we ignore and keep optimistic message
+    } catch (err) {
+      console.error('Failed to send message', err);
+      // mark last message as failed (simple approach)
+      setMessages((m) => m.map((msg, i) => (i === m.length - 1 ? { ...msg, failed: true } : msg)));
+    }
+  };
+
+  return (
+    <AppLayout showGreeting={false}>
+      <div style={{ display: 'flex', gap: 18, padding: 20 }}>
+        <div style={{ width: 320, background: '#fff', borderRadius: 8, padding: 12, boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}>
+          <h3 style={{ marginTop: 0 }}>Students</h3>
+          {loadingStudents ? (
+            <div>Loading students...</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '70vh', overflowY: 'auto' }}>
+              {students.map((s) => (
+                <button
+                  key={s._id}
+                  onClick={() => loadConversation(s)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px',
+                    textAlign: 'left',
+                    borderRadius: 8,
+                    border: selectedStudent && selectedStudent._id === s._id ? '1px solid var(--primary)' : '1px solid #eee',
+                    background: selectedStudent && selectedStudent._id === s._id ? 'rgba(30,120,240,0.06)' : 'transparent',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div style={{ width: 40, height: 40, borderRadius: 20, background: '#e6eefc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                    {((s.fullName || s.name || 'U').charAt(0) || 'U').toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.fullName || s.name || 'Unnamed'}</div>
+                      <div style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{s.lastAt ? new Date(s.lastAt).toLocaleTimeString() : ''}</div>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#666', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{s.lastMessage || s.email || ''}</div>
+                      {s.unreadCount > 0 && (
+                        <div style={{ background: 'var(--primary)', color: '#fff', borderRadius: 12, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
+                          {s.unreadCount}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+              {students.length === 0 && <div className="text-muted">No students found.</div>}
+            </div>
+          )}
+        </div>
+
+        <div style={{ flex: 1, background: '#fff', borderRadius: 8, padding: 12, boxShadow: '0 2px 6px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', minHeight: 400 }}>
+          <div style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: 8, marginBottom: 8 }}>
+            <h3 style={{ margin: 0 }}>{selectedStudent ? (selectedStudent.fullName || selectedStudent.name) : 'Select a student'}</h3>
+            <div style={{ fontSize: 13, color: '#666' }}>{selectedStudent ? (selectedStudent.email || selectedStudent.phone) : 'Click a student to open conversation'}</div>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
+            {loadingMsgs ? (
+              <div>Loading messages...</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {messages.map((m, idx) => (
+                  <div key={idx} style={{ alignSelf: m.sender === 'me' ? 'flex-end' : 'flex-start', maxWidth: '75%', padding: '8px 10px', borderRadius: 8, background: m.sender === 'me' ? 'var(--primary)' : '#f5f5f5', color: m.sender === 'me' ? '#fff' : '#111' }}>
+                    <div style={{ fontSize: 14 }}>{m.text}</div>
+                    <div style={{ fontSize: 11, opacity: 0.7, marginTop: 6 }}>{new Date(m.createdAt || Date.now()).toLocaleString()}{m.failed ? ' • Failed' : ''}</div>
+                  </div>
+                ))}
+                <div ref={endRef} />
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={handleSend} style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input value={input} onChange={e => setInput(e.target.value)} placeholder={selectedStudent ? `Message ${selectedStudent.fullName || 'student'}` : 'Select a student to message'} style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd' }} disabled={!selectedStudent} />
+            <button className="btn btn-primary" type="submit" disabled={!selectedStudent || !input.trim()}>Send</button>
+          </form>
+        </div>
+      </div>
+    </AppLayout>
+  );
+}

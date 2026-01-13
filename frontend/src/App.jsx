@@ -28,6 +28,8 @@ import AdminAnnouncements from './pages/Admin/AdminAnnouncements';
 import StudentAnnouncements from './pages/Student/Announcements';
 import InstructorAnnouncements from './pages/Instructor/Announcements';
 import ParentAnnouncements from './pages/Parent/Announcements';
+import ParentDashboard from './pages/Parent/ParentDashboard';
+import Messages from './pages/Messages';
 // Instructor Pages
 import InstructorDashboard from './pages/Instructor/InstructorDashboard';
 import InstructorCourses from './pages/Instructor/InstructorCourses';
@@ -126,6 +128,7 @@ function Layout() {
           <Route path="/parent/dashboard" element={<ProtectedRoute requireRole="parent"><ParentDashboard /></ProtectedRoute>} />
           <Route path="/parent/student-report" element={<ProtectedRoute requireRole="parent"><StudentReport /></ProtectedRoute>} />
           <Route path="/parent/announcements" element={<ProtectedRoute requireRole="parent"><ParentAnnouncements /></ProtectedRoute>} />
+          <Route path="/messages" element={<ProtectedRoute requireRole="student"><Messages /></ProtectedRoute>} />
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/payment" element={<PaymentInterface />}></Route>
           <Route path="/leaderboard" element={<Leaderboard />} />
