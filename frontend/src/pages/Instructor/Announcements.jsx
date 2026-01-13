@@ -55,6 +55,18 @@ const InstructorAnnouncements = () => {
                 {msg.image && (
                   <img src={msg.image} alt="Announcement" className="message-image" />
                 )}
+                {msg.video && (
+                  <video src={msg.video} controls className="message-video" />
+                )}
+                {msg.file && (
+                  <div className="message-file">
+                    <span className="file-icon">📄</span>
+                    <div className="file-info">
+                      <div className="file-name">{msg.file.name}</div>
+                      <div className="file-size">{msg.file.size}</div>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
