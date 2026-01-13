@@ -28,7 +28,6 @@ import AdminAnnouncements from './pages/Admin/AdminAnnouncements';
 import StudentAnnouncements from './pages/Student/Announcements';
 import InstructorAnnouncements from './pages/Instructor/Announcements';
 import ParentAnnouncements from './pages/Parent/Announcements';
-import ParentDashboard from './pages/Parent/ParentDashboard';
 import Messages from './pages/Messages';
 // Instructor Pages
 import InstructorDashboard from './pages/Instructor/InstructorDashboard';
@@ -42,7 +41,9 @@ import StudentCourses from './pages/Student/StudentCourses';
 import StudentEnrolledCourses from './pages/Student/StudentEnrolledCourses';
 import StudentAchievements from './pages/Student/StudentAchievements';
 import StudentActivity from './pages/Student/StudentActivity';
-import StudentNotes from './pages/Student/StudentNotes';import Blocked from './pages/Blocked';// Parent Pages
+import StudentNotes from './pages/Student/StudentNotes';
+import Blocked from './pages/Blocked';
+// Parent Pages
 import ParentDashboard from './pages/Parent/ParentDashboard';
 import StudentReport from './pages/Parent/StudentReport';
 
