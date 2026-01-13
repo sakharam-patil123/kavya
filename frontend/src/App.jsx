@@ -41,6 +41,7 @@ import StudentEnrolledCourses from './pages/Student/StudentEnrolledCourses';
 import StudentAchievements from './pages/Student/StudentAchievements';
 import StudentActivity from './pages/Student/StudentActivity';
 import StudentNotes from './pages/Student/StudentNotes';import Blocked from './pages/Blocked';// Parent Pages
+import ParentDashboard from './pages/Parent/ParentDashboard';
 import StudentReport from './pages/Parent/StudentReport';
 
 
