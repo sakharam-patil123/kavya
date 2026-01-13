@@ -41,9 +41,19 @@ exports.getConversation = async (req, res) => {
     if (!other) return res.status(400).json({ message: 'Missing userId' });
 
     const msgs = await Message.find({
-      $or: [
-        { from: me, to: other },
-        { from: other, to: me },
+      $and: [
+        {
+          $or: [
+            { from: me, to: other },
+            { from: other, to: me },
+          ]
+        },
+        {
+          $or: [
+            { deletedFor: { $exists: false } },
+            { deletedFor: { $nin: [me] } }
+          ]
+        }
       ]
     }).sort('createdAt').lean();
 
@@ -58,9 +68,22 @@ exports.getConversation = async (req, res) => {
 exports.listRecent = async (req, res) => {
   try {
     const me = req.user._id;
+    const meObjectId = mongoose.Types.ObjectId(String(me));
     // Aggregate per-conversation summary: other user id, last message, lastAt, unreadCount
     const pipeline = [
-      { $match: { $or: [{ from: me }, { to: me }] } },
+      { 
+        $match: { 
+          $and: [
+            { $or: [{ from: me }, { to: me }] },
+            {
+              $or: [
+                { deletedFor: { $exists: false } },
+                { deletedFor: { $nin: [meObjectId] } }
+              ]
+            }
+          ]
+        } 
+      },
       { $sort: { createdAt: -1 } },
       { $group: {
         _id: { $cond: [{ $eq: ['$from', me] }, '$to', '$from'] },
@@ -68,12 +91,23 @@ exports.listRecent = async (req, res) => {
         lastFrom: { $first: '$from' },
         lastAt: { $first: '$createdAt' }
       } },
-      // Count unread messages per conversation (to me and read: false)
+      // Count unread messages per conversation (to me and read: false, not deleted)
       { $lookup: {
         from: 'messages',
         let: { otherId: '$_id' },
         pipeline: [
-          { $match: { $expr: { $and: [ { $eq: ['$from', '$$otherId'] }, { $eq: ['$to', mongoose.Types.ObjectId(String(me))] }, { $eq: ['$read', false] } ] } } },
+          { 
+            $match: { 
+              $expr: { 
+                $and: [ 
+                  { $eq: ['$from', '$$otherId'] }, 
+                  { $eq: ['$to', meObjectId] }, 
+                  { $eq: ['$read', false] },
+                  { $not: { $in: [meObjectId, '$deletedFor'] } }
+                ] 
+              } 
+            } 
+          },
           { $count: 'count' }
         ],
         as: 'unreadInfo'
@@ -84,8 +118,6 @@ exports.listRecent = async (req, res) => {
       { $limit: 50 }
     ];
 
-    // Use mongoose to run aggregation; require mongoose here to convert ObjectId
-    const mongoose = require('mongoose');
     const summaries = await Message.aggregate(pipeline);
     return res.json({ data: summaries });
   } catch (err) {
@@ -106,5 +138,38 @@ exports.markRead = async (req, res) => {
   } catch (err) {
     console.error('markRead error', err);
     return res.status(500).json({ message: 'Failed to mark messages read' });
+  }
+};
+
+// Delete a message for the current user (per-user deletion)
+exports.deleteMessage = async (req, res) => {
+  try {
+    const me = req.user._id;
+    const messageId = req.params.messageId;
+    if (!messageId) return res.status(400).json({ message: 'Missing messageId' });
+
+    // Find the message and ensure the user is either sender or receiver
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ message: 'Message not found' });
+
+    // Check if user is part of this conversation
+    const isSender = String(message.from) === String(me);
+    const isReceiver = String(message.to) === String(me);
+    
+    if (!isSender && !isReceiver) {
+      return res.status(403).json({ message: 'You do not have permission to delete this message' });
+    }
+
+    // Add user to deletedFor array if not already present
+    if (!message.deletedFor || !message.deletedFor.includes(me)) {
+      await Message.findByIdAndUpdate(messageId, {
+        $addToSet: { deletedFor: me }
+      });
+    }
+
+    return res.json({ message: 'Message deleted successfully' });
+  } catch (err) {
+    console.error('deleteMessage error', err);
+    return res.status(500).json({ message: 'Failed to delete message' });
   }
 };

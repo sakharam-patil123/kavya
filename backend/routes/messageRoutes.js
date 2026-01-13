@@ -1,10 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
-const { sendMessage, getConversation, listRecent } = require('../controllers/messageController');
+const { sendMessage, getConversation, listRecent, deleteMessage } = require('../controllers/messageController');
 
 // Send a message (protected)
 router.post('/', protect, sendMessage);
+
+// Delete a specific message (per-user deletion)
+router.delete('/:messageId', protect, deleteMessage);
 
 // Get conversation with a specific user
 router.get('/:userId', protect, getConversation);

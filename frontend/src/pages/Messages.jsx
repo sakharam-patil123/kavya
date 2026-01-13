@@ -10,6 +10,16 @@ export default function Messages() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [pinnedStudents, setPinnedStudents] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('pinnedStudents') || '[]');
+    } catch {
+      return [];
+    }
+  });
   const endRef = useRef(null);
 
   useEffect(() => {
@@ -173,7 +183,7 @@ export default function Messages() {
 
       // If the conversation is open with this participant, append message and mark read
       if (selectedStudent && String(selectedStudent._id) === String(otherParticipant)) {
-        setMessages(m => [...m, { sender: senderIsMe ? 'me' : 'them', text: msg.text, createdAt: msg.createdAt }]);
+        setMessages(m => [...m, { _id: msg._id, sender: senderIsMe ? 'me' : 'them', text: msg.text, createdAt: msg.createdAt }]);
         if (!senderIsMe) {
           axiosClient.post(`/api/messages/${otherParticipant}/read`).catch(() => {});
           // clear unread locally and update preview
@@ -210,6 +220,7 @@ export default function Messages() {
       const meId = (() => { try { return (JSON.parse(localStorage.getItem('user')||'{}'))._id || localStorage.getItem('userId'); } catch (e) { return localStorage.getItem('userId'); } })();
       const raw = res.data.data || res.data || [];
       const normalized = (raw || []).map(msg => ({
+        _id: msg._id, // Include message ID for deletion
         sender: String(msg.from) === String(meId) ? 'me' : 'them',
         text: msg.text || msg.body || '',
         createdAt: msg.createdAt || msg.created_at || msg.updatedAt || new Date().toISOString()
@@ -229,6 +240,7 @@ export default function Messages() {
         const meId2 = (() => { try { return (JSON.parse(localStorage.getItem('user')||'{}'))._id || localStorage.getItem('userId'); } catch (e) { return localStorage.getItem('userId'); } })();
         const raw2 = res2.data.data || res2.data || [];
         const normalized2 = (raw2 || []).map(msg => ({
+          _id: msg._id, // Include message ID for deletion
           sender: String(msg.from) === String(meId2) ? 'me' : 'them',
           text: msg.text || msg.body || '',
           createdAt: msg.createdAt || msg.created_at || msg.updatedAt || new Date().toISOString()
@@ -248,6 +260,66 @@ export default function Messages() {
     }
   };
 
+  const handleEditMessage = async (messageIndex) => {
+    if (!editText.trim()) return;
+    const message = messages[messageIndex];
+    if (message.sender !== 'me') return;
+    
+    try {
+      setMessages(prev => prev.map((m, i) => i === messageIndex ? { ...m, text: editText, isEdited: true } : m));
+      setEditingId(null);
+      setEditText('');
+      await axiosClient.put(`/api/messages/${message._id || messageIndex}`, { text: editText }).catch(() => {});
+    } catch (err) {
+      console.error('Failed to edit message', err);
+    }
+  };
+
+  const handleDeleteMessage = async (messageIndex) => {
+    if (!window.confirm('Delete this message? This will permanently remove it from your view.')) return;
+    const message = messages[messageIndex];
+    
+    if (!message._id) {
+      console.error('Message ID not found');
+      return;
+    }
+    
+    try {
+      // Optimistically remove from UI
+      setMessages(prev => prev.filter((_, i) => i !== messageIndex));
+      setEditingId(null);
+      
+      // Call backend to mark as deleted for current user
+      await axiosClient.delete(`/api/messages/${message._id}`);
+    } catch (err) {
+      console.error('Failed to delete message', err);
+      // Revert on error - reload conversation
+      if (selectedStudent) {
+        loadConversation(selectedStudent);
+      }
+    }
+  };
+
+  const togglePinStudent = (studentId) => {
+    const newPinnedStudents = pinnedStudents.includes(String(studentId))
+      ? pinnedStudents.filter(id => id !== String(studentId))
+      : [...pinnedStudents, String(studentId)];
+    setPinnedStudents(newPinnedStudents);
+    localStorage.setItem('pinnedStudents', JSON.stringify(newPinnedStudents));
+  };
+
+  const getSortedStudents = (studentList) => {
+    return [...studentList].sort((a, b) => {
+      const aIsPinned = pinnedStudents.includes(String(a._id));
+      const bIsPinned = pinnedStudents.includes(String(b._id));
+      if (aIsPinned !== bIsPinned) return aIsPinned ? -1 : 1;
+      const ta = a.lastAt ? new Date(a.lastAt).getTime() : 0;
+      const tb = b.lastAt ? new Date(b.lastAt).getTime() : 0;
+      if (ta === tb) return (a.fullName || '').localeCompare(b.fullName || '');
+      return tb - ta;
+    });
+  };
+
   const handleSend = async (e) => {
     e?.preventDefault();
     if (!input.trim() || !selectedStudent) return;
@@ -255,7 +327,8 @@ export default function Messages() {
 
     // Optimistic UI append with precise timestamp
     const now = new Date().toISOString();
-    const outgoing = { sender: 'me', text, to: selectedStudent._id, createdAt: now };
+    const tempId = `temp-${Date.now()}`;
+    const outgoing = { _id: tempId, sender: 'me', text, to: selectedStudent._id, createdAt: now };
     setMessages((m) => [...m, outgoing]);
     setInput('');
 
@@ -263,8 +336,13 @@ export default function Messages() {
     promoteStudent(selectedStudent._id, text, { lastAt: now });
 
     try {
-      await axiosClient.post('/api/messages', { to: selectedStudent._id, text });
-      // Ideally backend returns saved message — we ignore and keep optimistic message
+      const response = await axiosClient.post('/api/messages', { to: selectedStudent._id, text });
+      // Replace temp message with actual message from server
+      if (response.data?.data?._id) {
+        setMessages((m) => m.map((msg) => 
+          msg._id === tempId ? { ...msg, _id: response.data.data._id } : msg
+        ));
+      }
     } catch (err) {
       console.error('Failed to send message', err);
       // mark last message as failed (simple approach)
@@ -277,46 +355,100 @@ export default function Messages() {
       <div style={{ display: 'flex', gap: 18, padding: 20 }}>
         <div style={{ width: 320, background: '#fff', borderRadius: 8, padding: 12, boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}>
           <h3 style={{ marginTop: 0 }}>Students</h3>
+          <div style={{ marginBottom: 12 }}>
+            <input
+              type="text"
+              placeholder="Search students..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: '1px solid #ddd',
+                fontSize: 14,
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
           {loadingStudents ? (
             <div>Loading students...</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '70vh', overflowY: 'auto' }}>
-              {students.map((s) => (
-                <button
-                  key={s._id}
-                  onClick={() => loadConversation(s)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '10px',
-                    textAlign: 'left',
-                    borderRadius: 8,
-                    border: selectedStudent && selectedStudent._id === s._id ? '1px solid var(--primary)' : '1px solid #eee',
-                    background: selectedStudent && selectedStudent._id === s._id ? 'rgba(30,120,240,0.06)' : 'transparent',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <div style={{ width: 40, height: 40, borderRadius: 20, background: '#e6eefc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                    {((s.fullName || s.name || 'U').charAt(0) || 'U').toUpperCase()}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.fullName || s.name || 'Unnamed'}</div>
-                      <div style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{s.lastAt ? new Date(s.lastAt).toLocaleTimeString() : ''}</div>
+              {getSortedStudents(students)
+                .filter((s) => {
+                  const searchLower = searchQuery.toLowerCase();
+                  const fullName = (s.fullName || s.name || '').toLowerCase();
+                  const email = (s.email || '').toLowerCase();
+                  return fullName.includes(searchLower) || email.includes(searchLower);
+                })
+                .map((s) => (
+                <div key={s._id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    onClick={() => loadConversation(s)}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '10px',
+                      textAlign: 'left',
+                      borderRadius: 8,
+                      border: selectedStudent && selectedStudent._id === s._id ? '1px solid var(--primary)' : '1px solid #eee',
+                      background: selectedStudent && selectedStudent._id === s._id ? 'rgba(30,120,240,0.06)' : 'transparent',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: 20, background: '#e6eefc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                      {((s.fullName || s.name || 'U').charAt(0) || 'U').toUpperCase()}
                     </div>
-                    <div style={{ fontSize: 12, color: '#666', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{s.lastMessage || s.email || ''}</div>
-                      {s.unreadCount > 0 && (
-                        <div style={{ background: 'var(--primary)', color: '#fff', borderRadius: 12, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
-                          {s.unreadCount}
-                        </div>
-                      )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.fullName || s.name || 'Unnamed'}</div>
+                        <div style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{s.lastAt ? new Date(s.lastAt).toLocaleTimeString() : ''}</div>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#666', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{s.lastMessage || s.email || ''}</div>
+                        {s.unreadCount > 0 && (
+                          <div style={{ background: 'var(--primary)', color: '#fff', borderRadius: 12, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
+                            {s.unreadCount}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      togglePinStudent(s._id);
+                    }}
+                    style={{
+                      padding: '6px 8px',
+                      background: 'transparent',
+                      color: pinnedStudents.includes(String(s._id)) ? 'var(--primary)' : '#ccc',
+                      border: '1px solid currentColor',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      fontSize: 14,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: 36,
+                      height: 36
+                    }}
+                    title={pinnedStudents.includes(String(s._id)) ? 'Unpin' : 'Pin'}
+                  >
+                    {pinnedStudents.includes(String(s._id)) ? '📌' : '📍'}
+                  </button>
+                </div>
               ))}
-              {students.length === 0 && <div className="text-muted">No students found.</div>}
+              {getSortedStudents(students).filter((s) => {
+                const searchLower = searchQuery.toLowerCase();
+                const fullName = (s.fullName || s.name || '').toLowerCase();
+                const email = (s.email || '').toLowerCase();
+                return fullName.includes(searchLower) || email.includes(searchLower);
+              }).length === 0 && <div className="text-muted">No students found.</div>}
             </div>
           )}
         </div>
@@ -333,9 +465,53 @@ export default function Messages() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {messages.map((m, idx) => (
-                  <div key={idx} style={{ alignSelf: m.sender === 'me' ? 'flex-end' : 'flex-start', maxWidth: '75%', padding: '8px 10px', borderRadius: 8, background: m.sender === 'me' ? 'var(--primary)' : '#f5f5f5', color: m.sender === 'me' ? '#fff' : '#111' }}>
-                    <div style={{ fontSize: 14 }}>{m.text}</div>
-                    <div style={{ fontSize: 11, opacity: 0.7, marginTop: 6 }}>{new Date(m.createdAt || Date.now()).toLocaleString()}{m.failed ? ' • Failed' : ''}</div>
+                  <div key={idx} style={{ alignSelf: m.sender === 'me' ? 'flex-end' : 'flex-start', display: 'flex', flexDirection: 'column', alignItems: m.sender === 'me' ? 'flex-end' : 'flex-start' }}>
+                    {editingId === idx ? (
+                      <div style={{ display: 'flex', gap: 6, maxWidth: '75%', marginBottom: 8 }}>
+                        <input
+                          type="text"
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1px solid var(--primary)', fontSize: 13 }}
+                          autoFocus
+                        />
+                        <button onClick={() => handleEditMessage(idx)} style={{ padding: '6px 12px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Save</button>
+                        <button onClick={() => { setEditingId(null); setEditText(''); }} style={{ padding: '6px 12px', background: '#ddd', color: '#333', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
+                        <div style={{ maxWidth: '75%', padding: '8px 10px', borderRadius: 8, background: m.sender === 'me' ? 'var(--primary)' : '#f5f5f5', color: m.sender === 'me' ? '#fff' : '#111' }}>
+                          <div style={{ fontSize: 14 }}>{m.text}</div>
+                          <div style={{ fontSize: 11, opacity: 0.7, marginTop: 6 }}>{new Date(m.createdAt || Date.now()).toLocaleString()}{m.failed ? ' • Failed' : ''}{m.isEdited ? ' • Edited' : ''}</div>
+                        </div>
+                        {m.sender === 'me' && !editingId && (
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <button
+                              onClick={() => { setEditingId(idx); setEditText(m.text); }}
+                              style={{ padding: '4px 8px', background: 'transparent', color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteMessage(idx)}
+                              style={{ padding: '4px 8px', background: 'transparent', color: '#e74c3c', border: '1px solid #e74c3c', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                        {m.sender !== 'me' && !editingId && (
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <button
+                              onClick={() => handleDeleteMessage(idx)}
+                              style={{ padding: '4px 8px', background: 'transparent', color: '#e74c3c', border: '1px solid #e74c3c', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
                 <div ref={endRef} />
