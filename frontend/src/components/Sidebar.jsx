@@ -12,10 +12,13 @@ import {
 import { TbReportAnalytics } from "react-icons/tb";
 import { MdSchool, MdMessage } from "react-icons/md";
 import logo from "../assets/logo.png";
+import { listPublicAnnouncements } from "../api/announcementService";
 
 function Sidebar({ isOpen, setIsOpen }) {
   const [isMobile, setIsMobile] = useState(false);
   const [userRole, setUserRole] = useState(null);
+  const [hasNewAnnouncements, setHasNewAnnouncements] = useState(false);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const navigate = useNavigate();
 
   // Detect screen size and get user role
@@ -37,6 +40,57 @@ function Sidebar({ isOpen, setIsOpen }) {
     window.addEventListener("resize", checkScreen);
     return () => window.removeEventListener("resize", checkScreen);
   }, [setIsOpen]);
+
+  // Check for new announcements every 3 seconds
+  useEffect(() => {
+    const checkAnnouncements = async () => {
+      try {
+        const announcements = await listPublicAnnouncements();
+        const announcementData = Array.isArray(announcements) ? announcements : [];
+        
+        // Determine the appropriate localStorage key based on user role
+        let lastSeenKey = 'studentLastSeenAnnouncementCount';
+        if (userRole === 'instructor') {
+          lastSeenKey = 'instructorLastSeenAnnouncementCount';
+        } else if (userRole === 'parent') {
+          lastSeenKey = 'parentLastSeenAnnouncementCount';
+        } else if (userRole === 'admin' || userRole === 'sub-admin') {
+          lastSeenKey = 'adminLastSeenAnnouncementCount';
+        }
+        
+        const lastSeenCount = parseInt(localStorage.getItem(lastSeenKey) || '0', 10);
+        setHasNewAnnouncements(announcementData.length > lastSeenCount);
+      } catch (err) {
+        console.error('Error checking announcements:', err);
+      }
+    };
+
+    if (userRole) {
+      checkAnnouncements();
+      const interval = setInterval(checkAnnouncements, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [userRole]);
+
+  // Check for unread messages every 2 seconds
+  useEffect(() => {
+    const checkUnreadMessages = async () => {
+      try {
+        // Check localStorage for unread message count
+        const currentUnread = localStorage.getItem('currentUnreadMessageCount') || '0';
+        const lastSeen = parseInt(localStorage.getItem('lastSeenMessageCount') || '0', 10);
+        const unreadCount = parseInt(currentUnread, 10);
+        
+        setHasUnreadMessages(unreadCount > lastSeen);
+      } catch (err) {
+        console.error('Error checking unread messages:', err);
+      }
+    };
+
+    checkUnreadMessages();
+    const interval = setInterval(checkUnreadMessages, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   const navItems = [
     // Show Dashboard and Courses only for student users (not instructor, admin, or parent)
@@ -150,6 +204,11 @@ function Sidebar({ isOpen, setIsOpen }) {
                   </div>
                 );
               }
+              
+              // Check if this is an announcements link or messages link
+              const isAnnouncementLink = item.path && item.path.includes('announcements');
+              const isMessagesLink = item.path === '/messages';
+              
               return (
                 <NavLink
                   key={item.path}
@@ -157,6 +216,11 @@ function Sidebar({ isOpen, setIsOpen }) {
                   className={({ isActive }) =>
                     isActive ? "nav-link active" : "nav-link"
                   }
+                  style={({ isActive }) => ({
+                    color: (isAnnouncementLink && hasNewAnnouncements && !isActive) || (isMessagesLink && hasUnreadMessages && !isActive) ? '#000000' : 'inherit',
+                    fontWeight: (isAnnouncementLink && hasNewAnnouncements && !isActive) || (isMessagesLink && hasUnreadMessages && !isActive) ? 'bold' : 'inherit',
+                    backgroundColor: (isAnnouncementLink && hasNewAnnouncements && !isActive) || (isMessagesLink && hasUnreadMessages && !isActive) ? '#f0f0f0' : 'inherit',
+                  })}
                   onClick={() => isMobile && setIsOpen(false)}
                 >
                   <span className="nav-icon">{item.icon}</span>

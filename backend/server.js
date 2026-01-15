@@ -20,9 +20,9 @@ const app = express();
 
 
 // Middleware
-// Increase request body size to allow base64-encoded attachments in messages
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+// Increase request body size to allow base64-encoded attachments and large video uploads
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // CORS configuration - allow frontend origin(s) and handle credentials
 // Read FRONTEND_URL (single URL) or FRONTEND_URLS (comma-separated) from env.
@@ -173,7 +173,7 @@ app.get('/api/announcements', require('./middleware/authMiddleware').protect, as
   try {
     const announcements = await Announcement.find({})
       .populate('createdBy', 'fullName email')
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 1 })
       .limit(100);
     res.json(announcements);
   } catch (err) {

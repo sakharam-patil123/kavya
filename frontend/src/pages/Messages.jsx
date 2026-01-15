@@ -142,6 +142,30 @@ export default function Messages() {
     loadStudents();
   }, []);
 
+  // Track total unread messages and mark as seen when user opens messages page
+  useEffect(() => {
+    const calculateTotalUnread = () => {
+      const total = students.reduce((sum, s) => sum + (s.unreadCount || 0), 0);
+      return total;
+    };
+
+    const totalUnread = calculateTotalUnread();
+    // Store current unread count
+    localStorage.setItem('currentUnreadMessageCount', totalUnread.toString());
+    // Mark messages as seen only on first page load
+    localStorage.setItem('lastSeenMessageCount', totalUnread.toString());
+  }, [students.length]); // Only update when student list count changes
+
+  // Update current unread count whenever students change (for real-time updates)
+  useEffect(() => {
+    const calculateTotalUnread = () => {
+      const total = students.reduce((sum, s) => sum + (s.unreadCount || 0), 0);
+      return total;
+    };
+    const totalUnread = calculateTotalUnread();
+    localStorage.setItem('currentUnreadMessageCount', totalUnread.toString());
+  }, [students]); // Update whenever students array changes
+
   // Move a student to the top of the students list (optionally update preview/lastAt/unread)
   const promoteStudent = (studentId, preview, opts = {}) => {
     setStudents(prev => {
