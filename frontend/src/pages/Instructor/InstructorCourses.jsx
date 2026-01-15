@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import AppLayout from '../../components/AppLayout';
@@ -19,7 +19,24 @@ const InstructorCourses = () => {
     duration: '',
     thumbnail: ''
   });
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const navigate = useNavigate();
+  const [titleQuery, setTitleQuery] = useState('');
+  const [levelFilter, setLevelFilter] = useState('all');
+
+  const filteredCourses = useMemo(() => {
+    let out = (courses || []).filter((c) => {
+      const q = (titleQuery || '').toLowerCase().trim();
+      if (q && !(c.title || '').toLowerCase().includes(q)) return false;
+      if (levelFilter && levelFilter !== 'all') {
+        return (c.level || '').toLowerCase() === String(levelFilter).toLowerCase();
+      }
+      return true;
+    });
+    return out;
+  }, [courses, titleQuery, levelFilter]);
 
   useEffect(() => {
     loadCourses();
@@ -44,11 +61,37 @@ const InstructorCourses = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      let courseRes;
       if (editingCourse) {
-        await axiosClient.put(`/api/instructor/courses/${editingCourse._id}`, formData);
+        courseRes = await axiosClient.put(`/api/instructor/courses/${editingCourse._id}`, formData);
       } else {
-        await axiosClient.post('/api/instructor/courses', formData);
+        courseRes = await axiosClient.post('/api/instructor/courses', formData);
       }
+      const created = courseRes.data && (courseRes.data.data || courseRes.data);
+      // If a PDF was selected, upload it for this course
+      if (selectedFile && created && created._id) {
+        try {
+          setUploading(true);
+          setUploadProgress(0);
+          const payload = new FormData();
+          payload.append('pdfResource', selectedFile);
+          const uploadRes = await axiosClient.post(`/api/instructor/course/upload-pdf/${created._id}`, payload, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (progressEvent) => {
+              const percent = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+              setUploadProgress(percent);
+            }
+          });
+          if (uploadRes && uploadRes.data && uploadRes.data.pdfResource) {
+            // nothing else required here; course list will be refreshed below
+          }
+        } catch (err) {
+          alert('PDF upload failed: ' + (err.response?.data?.message || err.message));
+        } finally {
+          setUploading(false);
+        }
+      }
+
       setFormData({
         title: '',
         description: '',
@@ -58,12 +101,23 @@ const InstructorCourses = () => {
         duration: '',
         thumbnail: ''
       });
+      setSelectedFile(null);
       setEditingCourse(null);
       setShowForm(false);
       loadCourses();
     } catch (error) {
       alert('Error saving course: ' + (error.response?.data?.message || error.message));
     }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      alert('Only PDF files are allowed.');
+      return;
+    }
+    setSelectedFile(file);
   };
 
   const handleEdit = (course) => {
@@ -127,6 +181,24 @@ const InstructorCourses = () => {
           }}>
             {showForm ? 'Cancel' : '+ Add Course'}
           </button>
+        </div>
+
+        {/* Search controls */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'center' }}>
+          <input
+            type="text"
+            placeholder="Search by title..."
+            value={titleQuery}
+            onChange={e => setTitleQuery(e.target.value)}
+            style={{ padding: 8, width: 280 }}
+          />
+
+          <select value={levelFilter} onChange={e => setLevelFilter(e.target.value)} style={{ padding: 8 }}>
+            <option value="all">All levels</option>
+            <option value="Beginner">Beginner</option>
+            <option value="Intermediate">Intermediate</option>
+            <option value="Advanced">Advanced</option>
+          </select>
         </div>
 
         {/* Form Section */}
@@ -196,6 +268,12 @@ const InstructorCourses = () => {
                 onChange={handleChange} 
                 className="form-control" 
               />
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', marginBottom: 6 }}>Upload PDF resource (optional)</label>
+                <input type="file" accept="application/pdf" onChange={handleFileChange} className="form-control" />
+                {selectedFile && <div style={{ marginTop: 8 }}>Selected: {selectedFile.name}</div>}
+                {uploading && <div style={{ marginTop: 8 }}>Uploading... {uploadProgress}%</div>}
+              </div>
               <button type="submit" className="btn btn-primary" style={{ gridColumn: '1 / -1' }}>
                 {editingCourse ? 'Update Course' : 'Create Course'}
               </button>
@@ -204,9 +282,9 @@ const InstructorCourses = () => {
         )}
 
         {/* Courses Table */}
-        {courses.length === 0 ? (
+        {filteredCourses.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px' }}>
-            <p>No courses yet. Create your first course to get started!</p>
+            <p>No courses match your search or filters.</p>
           </div>
         ) : (
           <div style={{
@@ -230,7 +308,7 @@ const InstructorCourses = () => {
                 </tr>
               </thead>
               <tbody>
-                {courses.map(course => (
+                {filteredCourses.map(course => (
                   <tr key={course._id} style={{ borderBottom: '1px solid #eee' }}>
                     <td style={{ padding: '12px' }}><strong>{course.title}</strong></td>
                     <td style={{ padding: '12px' }}>{course.category}</td>

@@ -102,13 +102,58 @@ const AdminAnnouncements = () => {
 
     try {
       setSending(true);
-      
-      // Create announcement object with text only (for now, handling media in future enhancement)
+
       const announcementData = {
         title: inputText.substring(0, 100), // Use first 100 chars as title
         message: inputText.trim(),
         targetRole: 'all' // Default to all users
       };
+
+      // If no title/message provided but media exists, provide a fallback title
+      if ((!announcementData.title || announcementData.title.trim() === '') && (!announcementData.message || announcementData.message.trim() === '')) {
+        announcementData.title = (image && image.name) || (video && video.name) || (file && file.name) || 'Announcement';
+      }
+
+      // Upload selected media first (if any) and attach returned URLs
+      const { uploadFile } = await import('../../api/announcementService');
+      if (image) {
+        try {
+          const u = await uploadFile(image);
+          if (u && (u.url || u.secure_url)) {
+            announcementData.image = u.url || u.secure_url;
+            announcementData.imageName = image.name;
+            announcementData.imageMime = image.type;
+          }
+        } catch (e) {
+          console.warn('Image upload failed', e);
+        }
+      }
+
+      if (video) {
+        try {
+          const u = await uploadFile(video);
+          if (u && (u.url || u.secure_url)) {
+            announcementData.video = u.url || u.secure_url;
+            announcementData.videoName = video.name;
+            announcementData.videoMime = video.type;
+          }
+        } catch (e) {
+          console.warn('Video upload failed', e);
+        }
+      }
+
+      if (file) {
+        try {
+          const u = await uploadFile(file);
+          if (u && (u.url || u.secure_url)) {
+            announcementData.file = u.url || u.secure_url;
+            announcementData.fileName = file.name;
+            announcementData.fileMime = file.type;
+          }
+        } catch (e) {
+          console.warn('File upload failed', e);
+        }
+      }
 
       // Send to backend
       const newAnnouncement = await createAnnouncement(announcementData);
@@ -222,7 +267,7 @@ const AdminAnnouncements = () => {
     }
 
     const updatedMessages = messages.map(msg => {
-      if (msg.id === editingId) {
+      if (msg._id === editingId) {
         return {
           ...msg,
           text: editText.trim(),
@@ -273,8 +318,8 @@ const AdminAnnouncements = () => {
             ) : messages.length === 0 ? (
               <div className="no-messages">No announcements yet. Start typing below...</div>
             ) : (
-              messages.map((msg) => (
-                <div key={msg._id} className="message admin-message">
+              messages.map((msg, idx) => (
+                <div key={msg._id || msg.id || `ann-${idx}`} className="message admin-message">
                   <div className="message-header">
                     <span className="admin-badge">Admin</span>
                     <span className="message-time">
@@ -291,6 +336,21 @@ const AdminAnnouncements = () => {
                     </div>
                   </div>
                   {msg.message && <div className="message-text">{msg.message}</div>}
+                  {msg.image && (
+                    <div className="message-media">
+                      <img src={msg.image} alt={msg.imageName || 'Announcement image'} className="message-image" />
+                    </div>
+                  )}
+                  {msg.video && (
+                    <div className="message-media">
+                      <video src={msg.video} controls className="message-video" />
+                    </div>
+                  )}
+                  {msg.file && (
+                    <div className="message-media">
+                      <a href={msg.file} target="_blank" rel="noreferrer" className="message-file-link">{msg.fileName || 'Attachment'}</a>
+                    </div>
+                  )}
                 </div>
               ))
             )}

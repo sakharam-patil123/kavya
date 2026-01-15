@@ -171,7 +171,8 @@ export default function Messages() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
-    const socketUrl = import.meta.env.VITE_API_BASE_URL || '';
+    // Prefer explicit backend API URL from env; otherwise fall back to localhost:5000
+    const socketUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
     const socket = ioClient(socketUrl, { transports: ['websocket', 'polling'] });
 
     socket.on('connect', () => {
@@ -183,24 +184,29 @@ export default function Messages() {
       const otherParticipant = String(msg.from) === String(meId) ? String(msg.to) : String(msg.from);
       const senderIsMe = String(msg.from) === String(meId);
 
-      // If the conversation is open with this participant, append message and mark read
-      if (selectedStudent && String(selectedStudent._id) === String(otherParticipant)) {
-        setMessages(m => [...m, { _id: msg._id, sender: senderIsMe ? 'me' : 'them', text: msg.text, createdAt: msg.createdAt }]);
-        if (!senderIsMe) {
-          axiosClient.post(`/api/messages/${otherParticipant}/read`).catch(() => {});
-          // clear unread locally and update preview
-          promoteStudent(otherParticipant, msg.text, { lastAt: msg.createdAt, unreadInc: 0 });
-          // immediately reflect read state in students list so styling updates without refresh
-          setStudents(prev => prev.map(s => (String(s._id) === String(otherParticipant) ? { ...s, unreadCount: 0, lastMessage: msg.text, lastAt: msg.createdAt } : s)));
-        } else {
-          promoteStudent(otherParticipant, msg.text, { lastAt: msg.createdAt });
-        }
-        return;
-      }
+      // Avoid duplicates: if the incoming message ID already exists in our list, ignore.
+      setMessages(prev => {
+        if (prev.some(m => String(m._id) === String(msg._id))) return prev;
 
-      // Conversation not open: promote participant to top, increment unread if incoming
-      const isIncoming = String(msg.to) === String(meId);
-      promoteStudent(otherParticipant, msg.text, { lastAt: msg.createdAt, unreadInc: isIncoming ? 1 : 0 });
+        // If the conversation is open with this participant, append message and mark read
+        if (selectedStudent && String(selectedStudent._id) === String(otherParticipant)) {
+          const newMsg = { _id: msg._id, sender: senderIsMe ? 'me' : 'them', text: msg.text, attachments: msg.attachments || [], createdAt: msg.createdAt };
+          // If incoming from other, mark read on server
+          if (!senderIsMe) {
+            axiosClient.post(`/api/messages/${otherParticipant}/read`).catch(() => {});
+            promoteStudent(otherParticipant, msg.text, { lastAt: msg.createdAt, unreadInc: 0 });
+            setStudents(prevStudents => prevStudents.map(s => (String(s._id) === String(otherParticipant) ? { ...s, unreadCount: 0, lastMessage: msg.text, lastAt: msg.createdAt } : s)));
+          } else {
+            promoteStudent(otherParticipant, msg.text, { lastAt: msg.createdAt });
+          }
+          return [...prev, newMsg];
+        }
+
+        // Conversation not open: promote participant to top, increment unread if incoming
+        const isIncoming = String(msg.to) === String(meId);
+        promoteStudent(otherParticipant, msg.text, { lastAt: msg.createdAt, unreadInc: isIncoming ? 1 : 0 });
+        return prev;
+      });
     });
 
     socket.on('authenticated', () => {});
@@ -387,12 +393,20 @@ export default function Messages() {
       const response = await axiosClient.post('/api/messages', payload);
       // Replace temp message with actual message from server
       if (response.data?.data?._id) {
-        setMessages((m) => m.map((msg) => 
-          msg._id === tempId ? { ...msg, _id: response.data.data._id } : msg
-        ));
+        const serverMsg = response.data.data;
+        setMessages((prev) => {
+          const exists = prev.some(p => String(p._id) === String(serverMsg._id));
+          if (exists) {
+            // Server message already appended via socket — remove temp message
+            return prev.filter(p => String(p._id) !== String(tempId));
+          }
+          // Replace temp message id with server id and attach returned attachments
+          return prev.map((msg) => (String(msg._id) === String(tempId) ? { ...msg, _id: serverMsg._id, attachments: serverMsg.attachments || payload.attachments || [] } : msg));
+        });
       }
     } catch (err) {
-      console.error('Failed to send message', err);
+      // Log detailed server response when available to aid debugging
+      console.error('Failed to send message', err?.response?.data || err?.message || err);
       // mark last message as failed (simple approach)
       setMessages((m) => m.map((msg, i) => (i === m.length - 1 ? { ...msg, failed: true } : msg)));
     }
@@ -533,15 +547,18 @@ export default function Messages() {
                           {m.attachments && m.attachments.length > 0 && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: m.text ? 8 : 0 }}>
                               {m.attachments.map((att, aidx) => {
-                                const isImage = att.type.startsWith('image/');
-                                const isVideo = att.type.startsWith('video/');
+                                const mime = (att.mimeType || att.type || '').toString();
+                                const src = att.url || att.data || att;
+                                const name = att.filename || att.name || (typeof att === 'string' ? att : 'file');
+                                const isImage = mime && mime.startsWith('image/');
+                                const isVideo = mime && mime.startsWith('video/');
                                 return (
                                   <div key={aidx} style={{ borderRadius: 6, overflow: 'hidden', maxWidth: 150 }}>
-                                    {isImage && <img src={att.data} alt={att.name} style={{ width: '100%', height: 'auto', borderRadius: 4 }} />}
-                                    {isVideo && <video src={att.data} style={{ width: '100%', height: 'auto', borderRadius: 4 }} controls />}
+                                    {isImage && src && <img src={src} alt={name} style={{ width: '100%', height: 'auto', borderRadius: 4 }} />}
+                                    {isVideo && src && <video src={src} style={{ width: '100%', height: 'auto', borderRadius: 4 }} controls />}
                                     {!isImage && !isVideo && (
                                       <div style={{ padding: '8px', background: '#e8e8e8', borderRadius: 4, fontSize: 12 }}>
-                                        📄 {att.name}
+                                        📄 {name}
                                       </div>
                                     )}
                                   </div>

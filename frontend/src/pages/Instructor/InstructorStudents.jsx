@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import AppLayout from '../../components/AppLayout';
@@ -11,6 +11,17 @@ const InstructorStudents = () => {
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [studentDetails, setStudentDetails] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredStudents = useMemo(() => {
+    const q = (searchQuery || '').toLowerCase().trim();
+    if (!q) return students;
+    return (students || []).filter(s => {
+      const name = (s.fullName || s.name || '').toLowerCase();
+      const email = (s.email || '').toLowerCase();
+      return name.includes(q) || email.includes(q);
+    });
+  }, [students, searchQuery]);
 
   useEffect(() => {
     loadStudents();
@@ -49,15 +60,29 @@ const InstructorStudents = () => {
   return (
     <AppLayout showGreeting={false}>
       <div style={{ padding: '20px' }}>
-        <div className="students-header">
-          <button 
-            className="back-button" 
-            onClick={() => navigate('/instructor/dashboard')}
-            title="Go back"
-          >
-            <FiArrowLeft /> Back
-          </button>
-          <h1>Students</h1>
+        <div className="students-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button 
+              className="back-button" 
+              onClick={() => navigate('/instructor/dashboard')}
+              title="Go back"
+              style={{ alignSelf: 'flex-start' }}
+            >
+              <FiArrowLeft /> Back
+            </button>
+            <div>
+              <input
+                type="text"
+                placeholder="Search students by name or email..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ padding: 8, borderRadius: 6, border: '1px solid #ddd', width: 320 }}
+              />
+            </div>
+          </div>
+          <div style={{ marginLeft: 'auto' }}>
+            <h1 style={{ margin: 0 }}>Students</h1>
+          </div>
         </div>
 
         {/* Student List */}
@@ -69,8 +94,8 @@ const InstructorStudents = () => {
           marginBottom: '20px',
           overflowX: 'auto'
         }}>
-          {students.length === 0 ? (
-            <p>No students enrolled in your courses yet.</p>
+          {filteredStudents.length === 0 ? (
+            <p>No students match your search.</p>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -83,7 +108,7 @@ const InstructorStudents = () => {
                 </tr>
               </thead>
               <tbody>
-                {students.map(student => (
+                {filteredStudents.map(student => (
                   <tr key={student._id} style={{ borderBottom: '1px solid #eee' }}>
                     <td style={{ padding: '12px' }}><strong>{student.fullName}</strong></td>
                     <td style={{ padding: '12px' }}>{student.email}</td>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AppLayout from '../../components/AppLayout';
-import { listAnnouncements } from '../../api/announcementService';
+import { listPublicAnnouncements } from '../../api/announcementService';
 import './Announcements.css';
 
 const StudentAnnouncements = () => {
@@ -12,7 +12,7 @@ const StudentAnnouncements = () => {
     // Load announcements from backend
     const loadMessages = async () => {
       try {
-        const data = await listAnnouncements();
+        const data = await listPublicAnnouncements();
         setMessages(Array.isArray(data) ? data : []);
         setError(null);
       } catch (err) {
@@ -44,13 +44,28 @@ const StudentAnnouncements = () => {
         ) : (
           <div className="messages-list">
             {messages.map((msg) => (
-              <div key={msg._id} className="announcement-message">
+              <div key={msg._id || msg.id} className="announcement-message">
                 <div className="message-header">
                   <span className="admin-badge">Admin Announcement</span>
                   <span className="message-time">{new Date(msg.createdAt).toLocaleString()}</span>
                 </div>
                 {msg.title && <div className="message-title"><strong>{msg.title}</strong></div>}
                 {msg.message && <div className="message-text">{msg.message}</div>}
+                {msg.image && (
+                  <div className="message-media">
+                    <img src={msg.image} alt={msg.imageName || 'Announcement image'} className="message-image" />
+                  </div>
+                )}
+                {msg.video && (
+                  <div className="message-media">
+                    <video src={msg.video} controls className="message-video" />
+                  </div>
+                )}
+                {msg.file && (
+                  <div className="message-media">
+                    <a href={msg.file} target="_blank" rel="noreferrer" className="message-file-link">{msg.fileName || 'Attachment'}</a>
+                  </div>
+                )}
               </div>
             ))}
           </div>

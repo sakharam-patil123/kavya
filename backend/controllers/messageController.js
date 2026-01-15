@@ -8,7 +8,7 @@ exports.sendMessage = async (req, res) => {
   try {
     const fromId = req.user._id;
     const { to, text, attachments } = req.body;
-    
+
     // Allow either text or attachments (or both)
     if (!to || (!text && (!attachments || attachments.length === 0))) {
       return res.status(400).json({ message: 'Missing `to` or `text`/`attachments`' });
@@ -26,12 +26,37 @@ exports.sendMessage = async (req, res) => {
 
     // Add attachments if provided
     if (attachments && attachments.length > 0) {
-      msgData.attachments = attachments.map(att => ({
-        name: att.name,
-        type: att.type,
-        data: att.data,
-        size: att.size
+      // If attachments contain inline base64 `data` fields, upload them to Cloudinary
+      const { uploadToCloudinary } = require('../config/cloudinary');
+
+      const processed = await Promise.all(attachments.map(async (att) => {
+        // If attachment has a data URL (base64), upload it and store the returned URL
+        if (att.data && String(att.data).startsWith('data:')) {
+          try {
+            // data:[<mediatype>][;base64],<data>
+            const matches = String(att.data).match(/^data:([^;]+);base64,(.*)$/);
+            if (matches) {
+              const mime = matches[1];
+              const base64 = matches[2];
+              const buffer = Buffer.from(base64, 'base64');
+              let resource_type = 'raw';
+              if (mime && mime.startsWith('image/')) resource_type = 'image';
+              else if (mime && mime.startsWith('video/')) resource_type = 'video';
+              const res = await uploadToCloudinary(buffer, { resource_type });
+              return { url: res.secure_url || res.url, filename: att.name || res.original_filename || '', mimeType: mime || att.type || '', size: att.size || 0 };
+            }
+          } catch (e) {
+            console.warn('Attachment upload failed for inline data:', e?.message || e);
+            // Fall back to storing minimal info
+            return { url: null, filename: att.name || '', mimeType: att.type || '', size: att.size || 0 };
+          }
+        }
+        // If already a URL or no data field, store as-is
+        if (att.url) return { url: att.url, filename: att.name || '', mimeType: att.type || '', size: att.size || 0 };
+        return { url: null, filename: att.name || '', mimeType: att.type || '', size: att.size || 0 };
       }));
+
+      msgData.attachments = processed;
     }
 
     const msg = await Message.create(msgData);
@@ -56,8 +81,8 @@ exports.sendMessage = async (req, res) => {
 
     return res.status(201).json({ data: msg });
   } catch (err) {
-    console.error('sendMessage error', err);
-    return res.status(500).json({ message: 'Failed to send message' });
+    console.error('sendMessage error', err?.stack || err);
+    return res.status(500).json({ message: 'Failed to send message', error: err?.message || String(err) });
   }
 };
 
