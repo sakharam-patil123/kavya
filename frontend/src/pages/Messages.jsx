@@ -188,6 +188,8 @@ export default function Messages() {
           axiosClient.post(`/api/messages/${otherParticipant}/read`).catch(() => {});
           // clear unread locally and update preview
           promoteStudent(otherParticipant, msg.text, { lastAt: msg.createdAt, unreadInc: 0 });
+          // immediately reflect read state in students list so styling updates without refresh
+          setStudents(prev => prev.map(s => (String(s._id) === String(otherParticipant) ? { ...s, unreadCount: 0, lastMessage: msg.text, lastAt: msg.createdAt } : s)));
         } else {
           promoteStudent(otherParticipant, msg.text, { lastAt: msg.createdAt });
         }
@@ -352,7 +354,7 @@ export default function Messages() {
 
   return (
     <AppLayout showGreeting={false}>
-      <div style={{ display: 'flex', gap: 18, padding: 20 }}>
+      <div style={{ display: 'flex', gap: 18, padding: 20, height: 'calc(100vh - 120px)', boxSizing: 'border-box', overflow: 'hidden' }}>
         <div style={{ width: 320, background: '#fff', borderRadius: 8, padding: 12, boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}>
           <h3 style={{ marginTop: 0 }}>Students</h3>
           <div style={{ marginBottom: 12 }}>
@@ -404,7 +406,7 @@ export default function Messages() {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.fullName || s.name || 'Unnamed'}</div>
+                        <div style={{ fontWeight: (s.unreadCount || 0) > 0 ? 700 : 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.fullName || s.name || 'Unnamed'}</div>
                         <div style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{s.lastAt ? new Date(s.lastAt).toLocaleTimeString() : ''}</div>
                       </div>
                       <div style={{ fontSize: 12, color: '#666', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -453,17 +455,17 @@ export default function Messages() {
           )}
         </div>
 
-        <div style={{ flex: 1, background: '#fff', borderRadius: 8, padding: 12, boxShadow: '0 2px 6px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', minHeight: 400 }}>
+        <div style={{ flex: 1, height: '100%', background: '#fff', borderRadius: 8, padding: 12, boxShadow: '0 2px 6px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: 8, marginBottom: 8 }}>
             <h3 style={{ margin: 0 }}>{selectedStudent ? (selectedStudent.fullName || selectedStudent.name) : 'Select a student'}</h3>
             <div style={{ fontSize: 13, color: '#666' }}>{selectedStudent ? (selectedStudent.email || selectedStudent.phone) : 'Click a student to open conversation'}</div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
+          <div style={{ flex: 1, padding: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {loadingMsgs ? (
               <div>Loading messages...</div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, overflowY: 'auto', paddingRight: 8 }}>
                 {messages.map((m, idx) => (
                   <div key={idx} style={{ alignSelf: m.sender === 'me' ? 'flex-end' : 'flex-start', display: 'flex', flexDirection: 'column', alignItems: m.sender === 'me' ? 'flex-end' : 'flex-start' }}>
                     {editingId === idx ? (
