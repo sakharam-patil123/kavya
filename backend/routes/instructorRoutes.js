@@ -10,6 +10,7 @@ const {
   createLesson,
   updateLesson,
   deleteLesson,
+  uploadCoursePdf,
   getInstructorStudents,
   getStudentProfile,
   updateStudentStatus,
@@ -27,6 +28,10 @@ router.get('/courses/:id', getInstructorCourse);
 router.post('/courses', createCourse);
 router.put('/courses/:id', updateCourse);
 router.delete('/courses/:id', deleteCourse);
+
+// Upload PDF resource for instructor-owned course
+const { uploadPdf } = require('../middleware/multer');
+router.post('/course/upload-pdf/:courseId', uploadPdf.single('pdfResource'), uploadCoursePdf);
 
 // ==================== LESSONS ====================
 router.get('/courses/:courseId/lessons', getCourseLessons);

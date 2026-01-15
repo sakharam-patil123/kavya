@@ -20,7 +20,9 @@ const app = express();
 
 
 // Middleware
-app.use(express.json());
+// Increase request body size to allow base64-encoded attachments in messages
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // CORS configuration - allow frontend origin(s) and handle credentials
 // Read FRONTEND_URL (single URL) or FRONTEND_URLS (comma-separated) from env.
@@ -150,7 +152,7 @@ app.use('/api/parents', parentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/messages', messageRoutes);
-// app.use('/api/uploads', uploadRoutes);
+app.use('/api/uploads', uploadRoutes);
 
 // Ensure uploads folder exists and serve statically so uploaded PDFs are accessible
 const uploadsDir = path.join(__dirname, 'uploads');

@@ -369,12 +369,32 @@ exports.deleteEnrollment = async (req, res) => {
 // --- Announcements ---
 exports.createAnnouncement = async (req, res) => {
   try {
-    const payload = { ...req.body, createdBy: req.user._id };
+    // Log incoming request for debugging upload/400 issues
+    console.log('createAnnouncement called by user:', req.user ? req.user._id : '<no-user>');
+    console.log('createAnnouncement payload keys:', Object.keys(req.body));
+
+    // Simple validation: require at least one of title, message, or media
+    const { title, message, image, video, file } = req.body || {};
+    if (!(title || message || image || video || file)) {
+      console.warn('createAnnouncement validation failed - no title/message/media present', { title, message, hasImage: !!image, hasVideo: !!video, hasFile: !!file });
+      return res.status(422).json({ message: 'At least one of title, message, image, video, or file is required' });
+    }
+
+    // If title missing, try to derive from message or media
+    const finalTitle = title || (message ? String(message).substring(0, 100) : (req.body.imageName || req.body.fileName || 'Announcement'));
+
+    const payload = { ...req.body, createdBy: req.user ? req.user._id : undefined, title: finalTitle };
     const a = await Announcement.create(payload);
     await ActivityLog.create({ action: 'create_announcement', performedBy: req.user._id, targetType: 'Announcement', targetId: a._id, details: payload });
+    console.log('Announcement created:', a._id);
     res.status(201).json(a);
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    console.error('createAnnouncement error:', err && err.stack ? err.stack : err);
+    // If Mongoose validation error, return useful message
+    if (err && err.name === 'ValidationError') {
+      return res.status(422).json({ message: err.message });
+    }
+    res.status(500).json({ message: err.message || 'Server error creating announcement' });
   }
 };
 
