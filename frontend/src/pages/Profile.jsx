@@ -199,9 +199,31 @@ export default function Profile() {
     if (!cert.courseId || cert.status === "Pending") return;
     try {
       setLoadingCertCourseId(cert.courseId);
-      const api = await import("../api");
-      const blob = await api.downloadCertificate(cert.courseId);
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `/api/progress/certificates/${cert.courseId}/download`,
+        {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
+      if (!response.ok) {
+        // Check if response is JSON (error) or PDF (success)
+        const contentType = response.headers.get("content-type");
+        let errorMsg = `Failed to download certificate (${response.status})`;
+        if (contentType?.includes("json")) {
+          try {
+            const errData = await response.json();
+            errorMsg = errData.message || errorMsg;
+          } catch (e) {
+            // If JSON parsing fails, use the status message
+          }
+        }
+        throw new Error(errorMsg);
+      }
+
+      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;

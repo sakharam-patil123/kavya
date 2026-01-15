@@ -165,6 +165,21 @@ try {
 // Search
 app.use('/api/search', searchRoutes);
 
+// Public Announcements endpoint (accessible to all authenticated users)
+const Announcement = require('./models/announcementModel');
+app.get('/api/announcements', require('./middleware/authMiddleware').protect, async (req, res) => {
+  try {
+    const announcements = await Announcement.find({})
+      .populate('createdBy', 'fullName email')
+      .sort({ createdAt: -1 })
+      .limit(100);
+    res.json(announcements);
+  } catch (err) {
+    console.error('Error fetching announcements:', err);
+    res.status(500).json({ message: 'Error fetching announcements' });
+  }
+});
+
 // Welcome route - serve frontend index if present
 app.get("/", (req, res) => {
   const indexHtml = path.join(__dirname, '..', 'frontend', 'dist', 'index.html');

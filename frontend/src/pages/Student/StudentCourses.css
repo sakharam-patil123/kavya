@@ -205,8 +205,14 @@
   color: #155724;
 }
 
+.course-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+}
+
 .btn-continue {
-  width: 100%;
+  flex: 1;
   padding: 12px;
   background: #2b6cb0;
   color: white;
@@ -216,11 +222,35 @@
   font-weight: 600;
   font-size: 14px;
   transition: all 0.3s ease;
-  margin-top: auto;
 }
 
 .btn-continue:hover {
   background: #1e4f7f;
+}
+
+.btn-download-cert {
+  flex: 1;
+  padding: 12px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.btn-download-cert:hover:not(:disabled) {
+  background: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+.btn-download-cert:disabled {
+  background: #95d5b2;
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 @media (max-width: 768px) {

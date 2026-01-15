@@ -1,37 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import AppLayout from '../../components/AppLayout';
+import { listAnnouncements } from '../../api/announcementService';
 import './Announcements.css';
 
 const StudentAnnouncements = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Load announcements from localStorage
-    const loadMessages = () => {
+    // Load announcements from backend
+    const loadMessages = async () => {
       try {
-        const saved = localStorage.getItem('adminAnnouncements');
-        if (saved) {
-          const data = JSON.parse(saved);
-          setMessages(Array.isArray(data) ? data : []);
-        }
-      } catch (e) {
-        console.error('Error loading announcements:', e);
+        const data = await listAnnouncements();
+        setMessages(Array.isArray(data) ? data : []);
+        setError(null);
+      } catch (err) {
+        console.error('Error loading announcements:', err);
+        setError('Failed to load announcements');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     loadMessages();
 
-    // Listen for storage changes to update in real-time
-    const handleStorageChange = (e) => {
-      if (e.key === 'adminAnnouncements') {
-        loadMessages();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    // Refresh announcements every 5 seconds for real-time updates
+    const interval = setInterval(loadMessages, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -40,33 +36,21 @@ const StudentAnnouncements = () => {
         <h2>Announcements</h2>
 
         {loading ? (
-          <p>Loading...</p>
+          <p>Loading announcements...</p>
+        ) : error ? (
+          <div className="error-message">{error}</div>
         ) : messages.length === 0 ? (
           <div className="no-announcements">No announcements yet.</div>
         ) : (
           <div className="messages-list">
             {messages.map((msg) => (
-              <div key={msg.id} className="announcement-message">
+              <div key={msg._id} className="announcement-message">
                 <div className="message-header">
                   <span className="admin-badge">Admin Announcement</span>
-                  <span className="message-time">{new Date(msg.timestamp).toLocaleString()}</span>
+                  <span className="message-time">{new Date(msg.createdAt).toLocaleString()}</span>
                 </div>
-                {msg.text && <div className="message-text">{msg.text}</div>}
-                {msg.image && (
-                  <img src={msg.image} alt="Announcement" className="message-image" />
-                )}
-                {msg.video && (
-                  <video src={msg.video} controls className="message-video" />
-                )}
-                {msg.file && (
-                  <div className="message-file">
-                    <span className="file-icon">📄</span>
-                    <div className="file-info">
-                      <div className="file-name">{msg.file.name}</div>
-                      <div className="file-size">{msg.file.size}</div>
-                    </div>
-                  </div>
-                )}
+                {msg.title && <div className="message-title"><strong>{msg.title}</strong></div>}
+                {msg.message && <div className="message-text">{msg.message}</div>}
               </div>
             ))}
           </div>
