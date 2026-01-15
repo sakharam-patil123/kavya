@@ -132,11 +132,14 @@ const quizAgg = await Quiz.aggregate([
     // Certificates derived from enrolled courses
     const certificates = enrolledCourses.map((enrollment) => {
       const course = enrollment.course || {};
-      const completed = (enrollment.completionPercentage || 0) >= 100;
+      const completionPercent = enrollment.completionPercentage || 0;
       let status = 'Pending';
-      if (completed && enrollment.certificateDownloadedAt) {
+      
+      // For now, make all enrolled courses eligible for certificates (completion >= 0)
+      // In production, change >= 0 to >= 100 to require full completion
+      if (completionPercent >= 0 && enrollment.certificateDownloadedAt) {
         status = 'Downloaded';
-      } else if (completed) {
+      } else if (completionPercent >= 0) {
         status = 'Available';
       }
 
@@ -146,6 +149,7 @@ const quizAgg = await Quiz.aggregate([
         title: course.title || 'Course',
         enrolledAt: enrollment.enrollmentDate,
         status,
+        completionPercentage: completionPercent,
       };
     });
 
@@ -257,9 +261,11 @@ exports.downloadCertificate = async (req, res) => {
         .json({ message: 'Enrollment for this course not found' });
     }
 
-    if ((enrollment.completionPercentage || 0) < 100) {
+    // For now, allow certificate download for any enrolled course (completionPercentage >= 0)
+    // In production, change >= 0 to >= 100 to require full completion
+    if ((enrollment.completionPercentage || 0) < 0) {
       return res.status(400).json({
-        message: 'Certificate is only available after course completion',
+        message: 'Certificate is only available after course enrollment',
       });
     }
 

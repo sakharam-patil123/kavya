@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AppLayout from '../../components/AppLayout';
+import { createAnnouncement, listAnnouncements, deleteAnnouncement } from '../../api/announcementService';
 import './AdminAnnouncements.css';
 
 const AdminAnnouncements = () => {
@@ -12,6 +13,8 @@ const AdminAnnouncements = () => {
   const [filePreview, setFilePreview] = useState(null);
   const [messages, setMessages] = useState([]);
   const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
   const [editImage, setEditImage] = useState(null);
@@ -21,18 +24,26 @@ const AdminAnnouncements = () => {
   const [editFile, setEditFile] = useState(null);
   const [editFilePreview, setEditFilePreview] = useState(null);
 
-  // Load saved announcements on mount
+  // Load announcements from backend on mount
   useEffect(() => {
-    const saved = localStorage.getItem('adminAnnouncements');
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        setMessages(data);
-      } catch (e) {
-        console.error('Error loading messages:', e);
-      }
-    }
+    loadAnnouncements();
+    // Refresh announcements every 5 seconds for real-time updates
+    const interval = setInterval(loadAnnouncements, 5000);
+    return () => clearInterval(interval);
   }, []);
+
+  const loadAnnouncements = async () => {
+    try {
+      const data = await listAnnouncements();
+      setMessages(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch (err) {
+      console.error('Error loading announcements:', err);
+      setError('Failed to load announcements');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -84,26 +95,27 @@ const AdminAnnouncements = () => {
     setFilePreview(null);
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputText.trim() && !imagePreview && !videoPreview && !filePreview) {
       return;
     }
 
     try {
       setSending(true);
-      const newMessage = {
-        id: Date.now(),
-        text: inputText.trim(),
-        image: imagePreview,
-        video: videoPreview,
-        file: filePreview,
-        timestamp: new Date().toISOString(),
-        isAdmin: true
+      
+      // Create announcement object with text only (for now, handling media in future enhancement)
+      const announcementData = {
+        title: inputText.substring(0, 100), // Use first 100 chars as title
+        message: inputText.trim(),
+        targetRole: 'all' // Default to all users
       };
 
-      const updatedMessages = [...messages, newMessage];
+      // Send to backend
+      const newAnnouncement = await createAnnouncement(announcementData);
+
+      // Add to local state
+      const updatedMessages = [...messages, newAnnouncement];
       setMessages(updatedMessages);
-      localStorage.setItem('adminAnnouncements', JSON.stringify(updatedMessages));
 
       // Reset inputs
       setInputText('');
@@ -113,30 +125,44 @@ const AdminAnnouncements = () => {
       setVideoPreview(null);
       setFile(null);
       setFilePreview(null);
+      setError(null);
 
       // Show brief success feedback
       setTimeout(() => setSending(false), 300);
-    } catch (e) {
-      console.error('Error sending message:', e);
+    } catch (err) {
+      console.error('Error sending message:', err);
       setSending(false);
-      alert('Failed to send announcement');
+      setError('Failed to send announcement');
+      alert('Failed to send announcement: ' + (err.message || 'Unknown error'));
     }
   };
 
-  const handleDeleteMessage = (id) => {
-    const updatedMessages = messages.filter(msg => msg.id !== id);
-    setMessages(updatedMessages);
-    localStorage.setItem('adminAnnouncements', JSON.stringify(updatedMessages));
+  const handleDeleteMessage = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this announcement?')) {
+      return;
+    }
+
+    try {
+      await deleteAnnouncement(id);
+      const updatedMessages = messages.filter(msg => msg._id !== id);
+      setMessages(updatedMessages);
+      setError(null);
+    } catch (err) {
+      console.error('Error deleting announcement:', err);
+      setError('Failed to delete announcement');
+      alert('Failed to delete announcement');
+    }
   };
 
   const handleEditMessage = (msg) => {
-    setEditingId(msg.id);
-    setEditText(msg.text);
-    setEditImagePreview(msg.image);
+    // Edit functionality can be implemented in future
+    setEditingId(msg._id);
+    setEditText(msg.message);
+    setEditImagePreview(null);
     setEditImage(null);
-    setEditVideoPreview(msg.video);
+    setEditVideoPreview(null);
     setEditVideo(null);
-    setEditFilePreview(msg.file);
+    setEditFilePreview(null);
     setEditFile(null);
   };
 
@@ -240,50 +266,31 @@ const AdminAnnouncements = () => {
         <div className="chatbox-container">
           {/* Messages Display Area */}
           <div className="messages-area">
-            {messages.length === 0 ? (
+            {loading ? (
+              <div className="loading">Loading announcements...</div>
+            ) : error ? (
+              <div className="error-message">{error}</div>
+            ) : messages.length === 0 ? (
               <div className="no-messages">No announcements yet. Start typing below...</div>
             ) : (
               messages.map((msg) => (
-                <div key={msg.id} className="message admin-message">
+                <div key={msg._id} className="message admin-message">
                   <div className="message-header">
                     <span className="admin-badge">Admin</span>
                     <span className="message-time">
-                      {new Date(msg.timestamp).toLocaleString()}
-                      {msg.edited && <span className="edited-label"> (edited)</span>}
+                      {new Date(msg.createdAt).toLocaleString()}
                     </span>
                     <div className="message-actions">
                       <button
-                        className="edit-btn"
-                        onClick={() => handleEditMessage(msg)}
-                        title="Edit announcement"
-                      >
-                        ✎
-                      </button>
-                      <button
                         className="delete-btn"
-                        onClick={() => handleDeleteMessage(msg.id)}
+                        onClick={() => handleDeleteMessage(msg._id)}
                         title="Delete announcement"
                       >
                         ✕
                       </button>
                     </div>
                   </div>
-                  {msg.text && <div className="message-text">{msg.text}</div>}
-                  {msg.image && (
-                    <img src={msg.image} alt="Announcement" className="message-image" />
-                  )}
-                  {msg.video && (
-                    <video src={msg.video} controls className="message-video" />
-                  )}
-                  {msg.file && (
-                    <div className="message-file">
-                      <span className="file-icon">📄</span>
-                      <div className="file-info">
-                        <div className="file-name">{msg.file.name}</div>
-                        <div className="file-size">{msg.file.size}</div>
-                      </div>
-                    </div>
-                  )}
+                  {msg.message && <div className="message-text">{msg.message}</div>}
                 </div>
               ))
             )}

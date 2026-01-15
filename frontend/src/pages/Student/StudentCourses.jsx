@@ -8,6 +8,7 @@ const StudentCourses = () => {
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [courseDetail, setCourseDetail] = useState(null);
+  const [loadingCertCourseId, setLoadingCertCourseId] = useState(null);
   const { courseId } = useParams();
   const navigate = useNavigate();
 
@@ -50,6 +51,52 @@ const StudentCourses = () => {
   const handleContinueLearning = (courseId) => {
     // Navigate to student courses route with courseId param so the same page loads detail
     navigate(`/student/courses/${courseId}`);
+  };
+
+  const handleDownloadCertificate = async (courseId, courseTitle) => {
+    try {
+      setLoadingCertCourseId(courseId);
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `/api/progress/certificates/${courseId}/download`,
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        let errorMsg = `Failed to download certificate (${response.status})`;
+        if (contentType?.includes('json')) {
+          try {
+            const errData = await response.json();
+            errorMsg = errData.message || errorMsg;
+          } catch (e) {
+            // If JSON parsing fails, use the status message
+          }
+        }
+        throw new Error(errorMsg);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const safeTitle = (courseTitle || 'Course').replace(/[^a-z0-9]/gi, '_');
+      link.download = `${safeTitle}_Certificate.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(
+        err?.message ||
+          'Certificate is not yet available. Please complete the course first.'
+      );
+    } finally {
+      setLoadingCertCourseId(null);
+    }
   };
 
   if (loading) {
@@ -160,13 +207,25 @@ const StudentCourses = () => {
                           </div>
                         )}
 
-                        {/* Continue Button */}
-                        <button 
-                          className="btn btn-continue"
-                          onClick={() => handleContinueLearning(course._id)}
-                        >
-                          {course.completionPercentage === 100 ? 'Review' : 'Continue Learning'}
-                        </button>
+                        {/* Action Buttons */}
+                        <div className="course-actions">
+                          <button 
+                            className="btn btn-continue"
+                            onClick={() => handleContinueLearning(course._id)}
+                          >
+                            {course.completionPercentage === 100 ? 'Review' : 'Continue Learning'}
+                          </button>
+                          {course.completionPercentage === 100 && (
+                            <button
+                              className="btn btn-download-cert"
+                              onClick={() => handleDownloadCertificate(course._id, course.title)}
+                              disabled={loadingCertCourseId === course._id}
+                              title="Download your certificate"
+                            >
+                              {loadingCertCourseId === course._id ? 'Downloading...' : '📥 Certificate'}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
