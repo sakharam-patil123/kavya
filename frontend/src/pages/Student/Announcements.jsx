@@ -7,13 +7,22 @@ const StudentAnnouncements = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [hasMarkedSeen, setHasMarkedSeen] = useState(false);
 
   useEffect(() => {
     // Load announcements from backend
     const loadMessages = async () => {
       try {
         const data = await listPublicAnnouncements();
-        setMessages(Array.isArray(data) ? data : []);
+        const announcementData = Array.isArray(data) ? data : [];
+        
+        // Mark announcements as seen ONLY on first load
+        if (!hasMarkedSeen && announcementData.length > 0) {
+          localStorage.setItem('studentLastSeenAnnouncementCount', announcementData.length.toString());
+          setHasMarkedSeen(true);
+        }
+        
+        setMessages(announcementData);
         setError(null);
       } catch (err) {
         console.error('Error loading announcements:', err);
@@ -28,7 +37,7 @@ const StudentAnnouncements = () => {
     // Refresh announcements every 5 seconds for real-time updates
     const interval = setInterval(loadMessages, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [hasMarkedSeen]);
 
   return (
     <AppLayout>

@@ -12,7 +12,7 @@ const imageFilter = (req, file, cb) => {
   }
 };
 
-// File middleware for PDFs and Word documents (and images)
+// File middleware for PDFs, Word documents, videos, and images
 const documentFilter = (req, file, cb) => {
   const allowed = [
     'application/pdf',
@@ -20,10 +20,14 @@ const documentFilter = (req, file, cb) => {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   ];
 
-  if ((file.mimetype && file.mimetype.startsWith('image/')) || allowed.includes(file.mimetype)) {
+  if (
+    (file.mimetype && file.mimetype.startsWith('image/')) ||
+    (file.mimetype && file.mimetype.startsWith('video/')) ||
+    allowed.includes(file.mimetype)
+  ) {
     cb(null, true);
   } else {
-    cb(new Error('Only image, PDF, or Word documents are allowed!'), false);
+    cb(new Error('Only image, video, PDF, or Word documents are allowed!'), false);
   }
 };
 
@@ -35,7 +39,7 @@ const uploadImages = multer({
 
 const uploadFiles = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB for videos
   fileFilter: documentFilter,
 });
 // Disk storage for PDFs to be served from /uploads

@@ -400,7 +400,7 @@ exports.createAnnouncement = async (req, res) => {
 
 exports.listAnnouncements = async (req, res) => {
   try {
-    const announcements = await Announcement.find({}).sort({ createdAt: -1 }).limit(100);
+    const announcements = await Announcement.find({}).sort({ createdAt: 1 }).limit(100);
     res.json(announcements);
   } catch (err) {
     res.status(400).json({ message: err.message });
