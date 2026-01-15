@@ -13,6 +13,7 @@ export default function Messages() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState([]);
   const [pinnedStudents, setPinnedStudents] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('pinnedStudents') || '[]');
@@ -21,6 +22,7 @@ export default function Messages() {
     }
   });
   const endRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const loadStudents = async () => {
@@ -218,13 +220,14 @@ export default function Messages() {
     try {
       // Try common REST pattern first
       const res = await axiosClient.get(`/api/messages/${student._id}`);
-      // Normalize server messages to `{ sender: 'me'|'them', text, createdAt }`
+      // Normalize server messages to `{ sender: 'me'|'them', text, createdAt, attachments }`
       const meId = (() => { try { return (JSON.parse(localStorage.getItem('user')||'{}'))._id || localStorage.getItem('userId'); } catch (e) { return localStorage.getItem('userId'); } })();
       const raw = res.data.data || res.data || [];
       const normalized = (raw || []).map(msg => ({
         _id: msg._id, // Include message ID for deletion
         sender: String(msg.from) === String(meId) ? 'me' : 'them',
         text: msg.text || msg.body || '',
+        attachments: msg.attachments || [],
         createdAt: msg.createdAt || msg.created_at || msg.updatedAt || new Date().toISOString()
       }));
       setMessages(normalized);
@@ -245,6 +248,7 @@ export default function Messages() {
           _id: msg._id, // Include message ID for deletion
           sender: String(msg.from) === String(meId2) ? 'me' : 'them',
           text: msg.text || msg.body || '',
+          attachments: msg.attachments || [],
           createdAt: msg.createdAt || msg.created_at || msg.updatedAt || new Date().toISOString()
         }));
         setMessages(normalized2);
@@ -322,23 +326,65 @@ export default function Messages() {
     });
   };
 
+  const handleAttachFile = (e) => {
+    const files = Array.from(e.target.files || []);
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
+    
+    const validFiles = files.filter(file => {
+      const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
+      const isDocument = file.type === 'application/pdf' || file.type.includes('word') || file.type.includes('sheet');
+      const isSizeValid = file.size <= MAX_FILE_SIZE;
+      
+      if (!isSizeValid) {
+        alert(`File "${file.name}" is too large. Maximum size is 5MB.`);
+        return false;
+      }
+      
+      return isImage || isVideo || isDocument;
+    });
+    
+    validFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setAttachedFiles(prev => [...prev, {
+          id: `${Date.now()}-${Math.random()}`,
+          name: file.name,
+          type: file.type,
+          data: event.target.result,
+          size: file.size
+        }]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeAttachedFile = (fileId) => {
+    setAttachedFiles(prev => prev.filter(f => f.id !== fileId));
+  };
+
   const handleSend = async (e) => {
     e?.preventDefault();
-    if (!input.trim() || !selectedStudent) return;
+    if ((!input.trim() && attachedFiles.length === 0) || !selectedStudent) return;
     const text = input.trim();
 
     // Optimistic UI append with precise timestamp
     const now = new Date().toISOString();
     const tempId = `temp-${Date.now()}`;
-    const outgoing = { _id: tempId, sender: 'me', text, to: selectedStudent._id, createdAt: now };
+    const outgoing = { _id: tempId, sender: 'me', text, to: selectedStudent._id, createdAt: now, attachments: attachedFiles };
     setMessages((m) => [...m, outgoing]);
     setInput('');
+    setAttachedFiles([]);
 
     // Promote the recipient to top immediately (WhatsApp-like) and set lastAt
     promoteStudent(selectedStudent._id, text, { lastAt: now });
 
     try {
-      const response = await axiosClient.post('/api/messages', { to: selectedStudent._id, text });
+      const payload = { to: selectedStudent._id, text };
+      if (attachedFiles.length > 0) {
+        payload.attachments = attachedFiles;
+      }
+      const response = await axiosClient.post('/api/messages', payload);
       // Replace temp message with actual message from server
       if (response.data?.data?._id) {
         setMessages((m) => m.map((msg) => 
@@ -483,7 +529,26 @@ export default function Messages() {
                     ) : (
                       <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
                         <div style={{ maxWidth: '75%', padding: '8px 10px', borderRadius: 8, background: m.sender === 'me' ? 'var(--primary)' : '#f5f5f5', color: m.sender === 'me' ? '#fff' : '#111' }}>
-                          <div style={{ fontSize: 14 }}>{m.text}</div>
+                          {m.text && <div style={{ fontSize: 14 }}>{m.text}</div>}
+                          {m.attachments && m.attachments.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: m.text ? 8 : 0 }}>
+                              {m.attachments.map((att, aidx) => {
+                                const isImage = att.type.startsWith('image/');
+                                const isVideo = att.type.startsWith('video/');
+                                return (
+                                  <div key={aidx} style={{ borderRadius: 6, overflow: 'hidden', maxWidth: 150 }}>
+                                    {isImage && <img src={att.data} alt={att.name} style={{ width: '100%', height: 'auto', borderRadius: 4 }} />}
+                                    {isVideo && <video src={att.data} style={{ width: '100%', height: 'auto', borderRadius: 4 }} controls />}
+                                    {!isImage && !isVideo && (
+                                      <div style={{ padding: '8px', background: '#e8e8e8', borderRadius: 4, fontSize: 12 }}>
+                                        📄 {att.name}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                           <div style={{ fontSize: 11, opacity: 0.7, marginTop: 6 }}>{new Date(m.createdAt || Date.now()).toLocaleString()}{m.failed ? ' • Failed' : ''}{m.isEdited ? ' • Edited' : ''}</div>
                         </div>
                         {m.sender === 'me' && !editingId && (
@@ -521,9 +586,43 @@ export default function Messages() {
             )}
           </div>
 
+          {attachedFiles.length > 0 && (
+            <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 8, padding: 8, background: '#f9f9f9', borderRadius: 8 }}>
+              {attachedFiles.map((file) => (
+                <div key={file.id} style={{ position: 'relative', display: 'inline-block' }}>
+                  {file.type.startsWith('image/') ? (
+                    <img src={file.data} alt={file.name} style={{ maxWidth: 80, maxHeight: 80, borderRadius: 4, objectFit: 'cover' }} />
+                  ) : file.type.startsWith('video/') ? (
+                    <video src={file.data} style={{ maxWidth: 80, maxHeight: 80, borderRadius: 4 }} />
+                  ) : (
+                    <div style={{ padding: 8, background: '#e8e8e8', borderRadius: 4, fontSize: 12, maxWidth: 80, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                      📄 {file.name}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeAttachedFile(file.id)}
+                    style={{ position: 'absolute', top: -8, right: -8, background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <form onSubmit={handleSend} style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
             <input value={input} onChange={e => setInput(e.target.value)} placeholder={selectedStudent ? `Message ${selectedStudent.fullName || 'student'}` : 'Select a student to message'} style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd' }} disabled={!selectedStudent} />
-            <button className="btn btn-primary" type="submit" disabled={!selectedStudent || !input.trim()}>Send</button>
+            <input ref={fileInputRef} type="file" multiple accept="image/*,video/*,.pdf" onChange={handleAttachFile} style={{ display: 'none' }} />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              title="Attach file"
+              style={{ padding: '10px 12px', background: '#f0f0f0', border: '1px solid #ddd', borderRadius: 8, cursor: 'pointer', fontSize: 16 }}
+            >
+              📎
+            </button>
+            <button className="btn btn-primary" type="submit" disabled={!selectedStudent || (!input.trim() && attachedFiles.length === 0)}>Send</button>
           </form>
         </div>
       </div>

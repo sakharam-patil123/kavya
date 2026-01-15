@@ -7,20 +7,48 @@ const { getIo } = require('../sockets/io');
 exports.sendMessage = async (req, res) => {
   try {
     const fromId = req.user._id;
-    const { to, text } = req.body;
-    if (!to || !text) return res.status(400).json({ message: 'Missing `to` or `text`' });
+    const { to, text, attachments } = req.body;
+    
+    // Allow either text or attachments (or both)
+    if (!to || (!text && (!attachments || attachments.length === 0))) {
+      return res.status(400).json({ message: 'Missing `to` or `text`/`attachments`' });
+    }
 
     // Basic validation: ensure recipient exists
     const recipient = await User.findById(to).select('_id fullName email');
     if (!recipient) return res.status(404).json({ message: 'Recipient not found' });
 
-    const msg = await Message.create({ from: fromId, to, text });
+    const msgData = {
+      from: fromId,
+      to,
+      text: text || '',
+    };
+
+    // Add attachments if provided
+    if (attachments && attachments.length > 0) {
+      msgData.attachments = attachments.map(att => ({
+        name: att.name,
+        type: att.type,
+        data: att.data,
+        size: att.size
+      }));
+    }
+
+    const msg = await Message.create(msgData);
     // Emit realtime event if socket.io is available
     try {
       const io = getIo();
       if (io) {
-        io.to(`user:${to}`).emit('new_message', { from: fromId, to, text, createdAt: msg.createdAt });
-        io.to(`user:${fromId}`).emit('new_message', { from: fromId, to, text, createdAt: msg.createdAt });
+        const payload = {
+          _id: msg._id,
+          from: fromId,
+          to,
+          text: text || '',
+          attachments: msg.attachments || [],
+          createdAt: msg.createdAt
+        };
+        io.to(`user:${to}`).emit('new_message', payload);
+        io.to(`user:${fromId}`).emit('new_message', payload);
       }
     } catch (e) {
       console.warn('Failed to emit socket message', e?.message || e);
