@@ -14,7 +14,30 @@ const StudentAnnouncements = () => {
     const loadMessages = async () => {
       try {
         const data = await listPublicAnnouncements();
-        const announcementData = Array.isArray(data) ? data : [];
+        let announcementData = Array.isArray(data) ? data : [];
+        
+        // Remove duplicates by ID - keep only unique announcements
+        const uniqueMap = new Map();
+        const seenIds = new Set();
+        
+        announcementData.forEach(msg => {
+          const id = msg._id || msg.id;
+          if (id) {
+            // Convert ID to string to ensure consistent comparison
+            const idStr = String(id);
+            if (!seenIds.has(idStr)) {
+              seenIds.add(idStr);
+              uniqueMap.set(idStr, msg);
+            }
+          }
+        });
+        
+        // Convert Map back to array and sort by creation date (newest first)
+        announcementData = Array.from(uniqueMap.values()).sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0);
+          const dateB = new Date(b.createdAt || 0);
+          return dateB - dateA; // Descending order (newest first)
+        });
         
         // Mark announcements as seen ONLY on first load
         if (!hasMarkedSeen && announcementData.length > 0) {
@@ -52,13 +75,12 @@ const StudentAnnouncements = () => {
           <div className="no-announcements">No announcements yet.</div>
         ) : (
           <div className="messages-list">
-            {messages.map((msg) => (
+            {[...messages].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).map((msg) => (
               <div key={msg._id || msg.id} className="announcement-message">
                 <div className="message-header">
                   <span className="admin-badge">Admin Announcement</span>
                   <span className="message-time">{new Date(msg.createdAt).toLocaleString()}</span>
                 </div>
-                {msg.title && <div className="message-title"><strong>{msg.title}</strong></div>}
                 {msg.message && <div className="message-text">{msg.message}</div>}
                 {msg.image && (
                   <div className="message-media">

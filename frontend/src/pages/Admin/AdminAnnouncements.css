@@ -498,3 +498,38 @@
   cursor: not-allowed;
   opacity: 0.6;
 }
+
+/* Dark mode styles - Admin Announcements chat text in black for visibility */
+.dark .admin-announcements-page h2 {
+  color: #000000 !important;
+}
+
+.dark .admin-message {
+  background: #e3f2fd;
+  border-color: #2196F3;
+}
+
+.dark .message-text {
+  color: #000000 !important;
+}
+
+.dark .message-header {
+  color: #000000 !important;
+}
+
+.dark .message-time {
+  color: #333333 !important;
+}
+
+.dark .file-name {
+  color: #000000 !important;
+}
+
+.dark .no-messages {
+  color: #333333 !important;
+}
+
+.dark .loading,
+.dark .error-message {
+  color: #000000 !important;
+}

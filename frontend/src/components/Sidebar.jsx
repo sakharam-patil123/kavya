@@ -176,6 +176,7 @@ function Sidebar({ isOpen, setIsOpen }) {
           transform:
             isMobile && !isOpen ? "translateX(-100%)" : "translateX(0)",
           borderRight: "1px solid var(--border)",
+          backgroundColor: "var(--sidebar-bg)",
           zIndex: 3000,
           display: "flex",
           flexDirection: "column",
