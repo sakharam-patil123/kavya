@@ -10,7 +10,9 @@ import {
   LuGalleryHorizontalEnd,
 } from "react-icons/lu";
 import { TbReportAnalytics } from "react-icons/tb";
-import { MdSchool, MdMessage } from "react-icons/md";
+import { MdSchool, MdMessage, MdCreditCard, MdAnnouncement } from "react-icons/md";
+import { MdAutoStories } from "react-icons/md";
+import { AiOutlineBook } from "react-icons/ai";
 import logo from "../assets/logo.png";
 import { listPublicAnnouncements } from "../api/announcementService";
 
@@ -96,20 +98,20 @@ function Sidebar({ isOpen, setIsOpen }) {
     // Show Dashboard and Courses only for student users (not instructor, admin, or parent)
       ...(userRole !== 'instructor' && userRole !== 'admin' && userRole !== 'sub-admin' && userRole !== 'parent' ? [
       { path: "/dashboard", label: "Dashboard", icon: <FiHome /> },
-      { path: "/courses", label: "Courses", icon: <FiBookOpen /> },
+      { path: "/courses", label: "Courses", icon: <AiOutlineBook /> },
       // Enrolled Courses (visible only to students) - placed directly below Courses
-      { path: "/student/enrolled-courses", label: "Enrolled Courses", icon: <FiBookOpen /> },
+      { path: "/student/enrolled-courses", label: "Enrolled Courses", icon: <MdAutoStories /> },
       { path: "/student/notes", label: "Notes", icon: <LuGalleryHorizontalEnd /> },
-      { path: "/student/announcements", label: "Announcements", icon: <LuGalleryHorizontalEnd /> },
+      { path: "/student/announcements", label: "Announcements", icon: <MdAnnouncement /> },
       ...(userRole === 'student' ? [{ path: "/messages", label: "Messages", icon: <MdMessage /> }] : []),
     ] : []),
     
     // Admin items
     ...(userRole === 'admin' || userRole === 'sub-admin' ? [
       { path: "/admin/dashboard", label: "Admin Dashboard", icon: <TbReportAnalytics /> },
-      { path: "/admin/announcements", label: "Announcements", icon: <LuGalleryHorizontalEnd /> },
+      { path: "/admin/announcements", label: "Announcements", icon: <MdAnnouncement /> },
       { path: "/admin/students", label: "Manage Students", icon: <LuUser /> },
-      { path: "/admin/courses", label: "Manage Courses", icon: <FiBookOpen /> },
+      { path: "/admin/courses", label: "Manage Courses", icon: <AiOutlineBook /> },
       { path: "/admin/notes", label: "Notes", icon: <LuGalleryHorizontalEnd /> },
       { path: "/admin/settings", label: "Admin Settings", icon: <TbReportAnalytics /> },
     ] : []),
@@ -118,11 +120,11 @@ function Sidebar({ isOpen, setIsOpen }) {
     ...(userRole === 'instructor' ? [
       { type: 'section', label: 'Instructor Panel' },
       { path: "/instructor/dashboard", label: "Dashboard", icon: <FiHome /> },
-      { path: "/instructor/courses", label: "My Courses", icon: <FiBookOpen /> },
+      { path: "/instructor/courses", label: "My Courses", icon: <AiOutlineBook /> },
       { path: "/instructor/students", label: "Students", icon: <LuUser /> },
-      { path: "/instructor/lessons", label: "Manage Lessons", icon: <FiBookOpen /> },
+      { path: "/instructor/lessons", label: "Manage Lessons", icon: <MdAutoStories /> },
       { path: "/instructor/analytics", label: "Analytics", icon: <TbReportAnalytics /> },
-      { path: "/instructor/announcements", label: "Announcements", icon: <LuGalleryHorizontalEnd /> },
+      { path: "/instructor/announcements", label: "Announcements", icon: <MdAnnouncement /> },
     ] : []),
     
     // Subscriptions and Leaderboard - shown only to student users
@@ -130,12 +132,12 @@ function Sidebar({ isOpen, setIsOpen }) {
       {
         path: "/subscription",
         label: "Subscriptions",
-        icon: <LuGalleryHorizontalEnd />,
+        icon: <MdCreditCard />,
       },
     ] : []),
     ...(userRole === 'parent' ? [
       { path: "/parent/student-report", label: "Student Reports", icon: <MdSchool /> },
-      { path: "/parent/announcements", label: "Announcements", icon: <LuGalleryHorizontalEnd /> },
+      { path: "/parent/announcements", label: "Announcements", icon: <MdAnnouncement /> },
       { path: "/messages", label: "Messages", icon: <MdMessage /> }
     ] : []),
     ...(userRole !== 'parent' ? [
