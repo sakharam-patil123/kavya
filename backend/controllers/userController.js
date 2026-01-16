@@ -402,6 +402,25 @@ const uploadPhoto = async (req, res) => {
   }
 };
 
+// @desc    Delete profile photo (unlink from user record)
+// @route   DELETE /api/users/photo
+// @access  Private
+const deletePhoto = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // Clear avatar field. If Cloudinary cleanup is required, store and remove public_id on upload.
+        user.avatar = null;
+        await user.save();
+
+        res.json({ message: 'Profile photo deleted' });
+    } catch (error) {
+        console.error('Error deleting profile photo', error);
+        res.status(500).json({ message: 'Failed to delete profile photo' });
+    }
+};
+
 // @desc    Get user streak
 // @route   GET /api/users/streak
 // @access  Private
@@ -480,6 +499,7 @@ module.exports = {
     getStudentCourses,
     completeLessonInCourse,
     uploadPhoto,
+    deletePhoto,
     getStreak
     ,getWeeklyStats, updateWeeklyStats
     ,listStudentsPublic
