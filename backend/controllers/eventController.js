@@ -76,7 +76,25 @@ const getUpcomingEvents = asyncHandler(async (req, res) => {
     .populate('course', 'title')
     .sort({ date: 1 })
     .limit(5);
-    
+
+    res.json(events);
+});
+
+// @desc    Get events for a specific course
+// @route   GET /api/events/course/:courseId
+// @access  Private
+const getEventsByCourse = asyncHandler(async (req, res) => {
+    const { courseId } = req.params;
+
+    const events = await Event.find({
+        course: courseId,
+        date: { $gte: new Date() },
+        status: 'Scheduled'
+    })
+    .populate('instructor', 'name email')
+    .populate('course', 'title')
+    .sort({ date: 1 });
+
     res.json(events);
 });
 
@@ -201,6 +219,7 @@ module.exports = {
     getEvents,
     getMyEvents,
     getUpcomingEvents,
+    getEventsByCourse,
     enrollInEvent,
     updateEvent,
     deleteEvent,
