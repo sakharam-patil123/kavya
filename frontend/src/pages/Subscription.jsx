@@ -64,7 +64,7 @@ function CourseCard({ course, onEnroll, isFavorite, onToggleFavorite }) {
 
         <div className="course-info">
           <p className="course-language">{course.language}</p>
-          <h3 className="course-title">{course.title}</h3>
+          <h3 className="course-title" style={{marginLeft:'35px'}}>{course.title}</h3>
         </div>
 
         <div className="course-stats">
@@ -148,7 +148,7 @@ function CourseListing({ onCourseSelect }) {
                 reviews: course.reviews || 0,
                 isPremium: course.isPremium !== false,
                 tutor: course.instructor?.fullName || 'KavyaLearn',
-                sellingStatus: course.isPublished ? 'Course Selling' : 'Coming Soon',
+                // sellingStatus: course.isPublished ? 'Course Selling' : 'Coming Soon',
                 totalStudents: `${course.enrolledStudents?.length || 0} students`,
                 overview: course.description?.substring(0, 100) || 'Learn from experts',
                 description: course.description || 'No description available',
@@ -348,8 +348,8 @@ function CourseDetail({ course, onBack }) {
           <h1 className="course-title-large">{course.title}</h1>
 
           <div className="course-meta">
-            <span className="status-badge">{course.sellingStatus}</span>
-            <span className="course-tutor">Tutor: {course.tutor}</span>
+            {/* <span className="status-badge">{course.sellingStatus}</span> */}
+            <span className="course-tutor" style={{marginLeft:'10px'}}>Tutor: {course.tutor}</span>
             <div className="rating-display">
               <Star size={16} className="rating-icon" />
               <span className="rating-value">{course.rating}</span>

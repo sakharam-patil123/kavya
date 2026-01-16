@@ -158,20 +158,43 @@ body {
   min-height: 3.5rem;
 }
 
+/* Ensure the course title is visually centered within the card */
+.course-title {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  /* margin-right:100px ; */
+  margin: 0.25rem auto 0.60rem;
+}
+
 .course-stats {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 1.5rem;
+  justify-content: space-between; /* students left, rating right */
+  width: 100%;
+  padding: 0 0.75rem;
+  gap: 0.5rem;
   margin-bottom: 1rem;
   font-size: 0.875rem;
   color: #4b5563;
+  white-space: nowrap; /* prevent wrapping so both stats stay on one line */
+  flex-wrap: nowrap;
 }
 
 .course-stat {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+  white-space: nowrap;
+}
+
+/* Remove forced left margin now that spacing is handled by flex alignment */
+.course-stat + .course-stat {
+  margin-left: 0;
 }
 
 .course-stat-icon {

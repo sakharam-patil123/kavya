@@ -53,6 +53,45 @@ const StudentCourses = () => {
     navigate(`/student/courses/${courseId}`);
   };
 
+  // Helper: compute progress percentage from lesson counts.
+  // Prefer explicit completedLessons/totalLessons or course.lessons.length.
+  // Only use raw completionPercentage when there is supporting lesson/total data.
+  const computeCompletionPct = (course) => {
+    const completedFromTop = course.completedLessons ?? null;
+    const totalFromTop = course.totalLessons ?? null;
+    const completedFromProgress = course.progress?.completedLessons ?? null;
+    const totalFromProgress = course.progress?.totalLessons ?? null;
+    const lessonsLen = Array.isArray(course.lessons) ? course.lessons.length : null;
+
+    const completed = Number(completedFromTop ?? completedFromProgress ?? 0);
+    const total = Number(totalFromTop ?? totalFromProgress ?? (lessonsLen ?? 0));
+
+    if (total > 0) {
+      let pct = Math.floor((completed / total) * 10) * 10;
+      pct = Math.max(0, Math.min(100, pct));
+      return pct;
+    }
+
+    // If no total but progress object contains total, use it
+    if (totalFromProgress && totalFromProgress > 0) {
+      const c = Number(completedFromProgress || 0);
+      const t = Number(totalFromProgress || 0);
+      let pct = Math.floor((c / t) * 10) * 10;
+      pct = Math.max(0, Math.min(100, pct));
+      return pct;
+    }
+
+    // Only use raw completionPercentage if there is lesson data to support it
+    if ((lessonsLen && lessonsLen > 0) || totalFromTop || totalFromProgress) {
+      const raw = Number(course.completionPercentage ?? course.progress?.completionPercentage ?? 0);
+      const pct = Math.max(0, Math.min(100, Math.floor(raw)));
+      return pct;
+    }
+
+    // No lesson/total information — assume 0% (do not treat enrollments as complete)
+    return 0;
+  };
+
   const handleDownloadCertificate = async (courseId, courseTitle) => {
     try {
       setLoadingCertCourseId(courseId);
@@ -113,7 +152,18 @@ const StudentCourses = () => {
             <h2>{courseDetail.course.title}</h2>
             <p>By {courseDetail.course.instructor?.fullName || 'Unknown'}</p>
             <div style={{ marginTop: 12 }}>
-              <strong>Progress:</strong> {courseDetail.enrollment?.completionPercentage || courseDetail.enrollment?.hoursSpent || 0}%
+              <strong>Progress:</strong>{' '}
+              {(() => {
+                const cd = courseDetail;
+                if (!cd) return 0;
+                const combined = {
+                  ...cd.course,
+                  completedLessons: cd.enrollment?.completedLessons,
+                  totalLessons: cd.enrollment?.totalLessons,
+                  progress: cd.enrollment
+                };
+                return `${computeCompletionPct(combined)}%`;
+              })()}
             </div>
             {/* Render lessons if available */}
             <div style={{ marginTop: 16 }}>
@@ -174,12 +224,12 @@ const StudentCourses = () => {
                         <div className="progress-section">
                           <div className="progress-info">
                             <span>Progress</span>
-                            <span className="progress-percentage">{course.completionPercentage}%</span>
+                            <span className="progress-percentage">{computeCompletionPct(course)}%</span>
                           </div>
                           <div className="progress-bar">
                             <div 
                               className="progress-fill" 
-                              style={{ width: `${course.completionPercentage}%` }}
+                              style={{ width: `${computeCompletionPct(course)}%` }}
                             ></div>
                           </div>
                         </div>
@@ -201,7 +251,7 @@ const StudentCourses = () => {
                         </div>
 
                         {/* Status Badge */}
-                        {course.completionPercentage === 100 && course.certificateDownloadedAt && (
+                        {computeCompletionPct(course) === 100 && course.certificateDownloadedAt && (
                           <div className="status-badge completed">
                             ✓ Completed
                           </div>
@@ -213,9 +263,9 @@ const StudentCourses = () => {
                             className="btn btn-continue"
                             onClick={() => handleContinueLearning(course._id)}
                           >
-                            {course.completionPercentage === 100 ? 'Review' : 'Continue Learning'}
+                            {computeCompletionPct(course) === 100 ? 'Review' : 'Continue Learning'}
                           </button>
-                          {course.completionPercentage === 100 && (
+                          {computeCompletionPct(course) === 100 && (
                             <button
                               className="btn btn-download-cert"
                               onClick={() => handleDownloadCertificate(course._id, course.title)}

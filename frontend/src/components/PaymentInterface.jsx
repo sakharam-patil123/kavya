@@ -560,11 +560,11 @@ const PaymentInterface = () => {
 
                 <div className="price-details">
                   <div className="price-row">
-                    <span className="price-label">Original Price:</span>
-                    <span className="price-value">₹3,009</span>
+                    <span className="price-label" style={{color:'black'}} >Original Price:</span>
+                    <span className="price-value" >₹3,009</span>
                   </div>
                   <div className="price-row">
-                    <span className="price-label">Discounts (83% Off):</span>
+                    <span className="price-label" style={{color:'black'}} >Discounts (83% Off):</span>
                     <span className="price-value discount">-₹2,490</span>
                   </div>
                 </div>
@@ -578,9 +578,9 @@ const PaymentInterface = () => {
                   </div>
                 </div>
 
-                <p className="terms-text">
+                <p className="terms-text" style={{color:'black'}} >
                   By completing your purchase, you agree to these{" "}
-                  <a href="#" className="terms-link">
+                  <a href="#" className="terms-link" style={{color:'black'}} >
                     Terms of Use
                   </a>
                 </p>
