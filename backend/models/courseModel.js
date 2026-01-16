@@ -35,8 +35,9 @@ const courseSchema = new mongoose.Schema({
         required: true
     },
     duration: {
-        type: String,
-        required: true
+        type: Number,
+        required: true,
+        description: 'Course duration in hours'
     },
     level: {
         type: String,

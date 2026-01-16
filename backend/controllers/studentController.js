@@ -15,11 +15,11 @@ exports.getStudentDashboard = async (req, res) => {
     const student = await User.findById(req.user._id)
       .populate({
         path: 'enrolledCourses.course',
-        select: 'title thumbnail instructor level',
+        select: 'title thumbnail instructor level duration',
         populate: { path: 'instructor', select: 'fullName' }
       })
       .populate('achievements');
-
+       
     // Filter out null course references (deleted courses)
     const validEnrollments = student.enrolledCourses.filter(c => c.course !== null);
     const enrolledCount = validEnrollments.length;
@@ -28,6 +28,31 @@ exports.getStudentDashboard = async (req, res) => {
     const averageProgress = enrolledCount 
       ? Math.round(validEnrollments.reduce((sum, c) => sum + c.completionPercentage, 0) / enrolledCount)
       : 0;
+
+    // Calculate total hours learned from all started courses
+    // A course is considered "started" if it has hoursSpent > 0 or completedLessons
+    const totalHoursLearned = validEnrollments.reduce((sum, enrollment) => {
+      // Use hoursSpent from enrollment if available
+      if (enrollment.hoursSpent && enrollment.hoursSpent > 0) {
+        return sum + enrollment.hoursSpent;
+      }
+      // If course has been started (has completed lessons), use course duration
+      if (enrollment.completedLessons && enrollment.completedLessons.length > 0) {
+        const courseDuration = enrollment.course?.duration || 0;
+        return sum + (courseDuration > 0 ? courseDuration : 0);
+      }
+      return sum;
+    }, 0);
+
+    console.log('📊 Dashboard: Student ID =', student._id);
+    console.log('📚 Dashboard: Total Enrolled Courses =', enrolledCount);
+    console.log('⏰ Dashboard: Total Hours Learned =', totalHoursLearned);
+    console.log('📋 Dashboard: Hours Breakdown:', validEnrollments.map(e => ({
+      course: e.course?.title,
+      hoursSpent: e.hoursSpent,
+      completedLessons: e.completedLessons?.length || 0,
+      courseDuration: e.course?.duration
+    })));
 
     res.json({
       success: true,
@@ -42,7 +67,7 @@ exports.getStudentDashboard = async (req, res) => {
           totalCoursesEnrolled: enrolledCount,
           completedCourses: completedCount,
           inProgressCourses: inProgressCount,
-          totalStudyHours: student.totalHoursLearned || 0,
+          totalStudyHours: totalHoursLearned,
           averageProgress,
           totalAchievements: student.achievements?.length || 0,
           streakDays: student.streakDays || 0
