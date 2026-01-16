@@ -241,3 +241,29 @@ body {
   color: #000 !important;
 }
 
+/* Dark mode styles for Add Event modal */
+.dark .modal-panel {
+  background: #333 !important;
+  color: #fff !important;
+}
+
+.dark .modal-panel h5,
+.dark .modal-panel label,
+.dark .modal-panel .form-control,
+.dark .modal-panel .form-select,
+.dark .modal-panel input,
+.dark .modal-panel select,
+.dark .modal-panel textarea {
+  color: #fff !important;
+}
+
+.dark .modal-panel .form-control::placeholder {
+  color: rgba(255,255,255,0.8) !important;
+}
+
+.dark .modal-panel .btn-light {
+  color: #000 !important;
+  background: #fff !important;
+  border-color: #fff !important;
+}
+

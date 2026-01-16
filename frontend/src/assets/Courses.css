@@ -751,25 +751,25 @@
 .dark .list-group-item {
   background: #0f1724;
   border-bottom-color: #1f2a37;
-  color: #000000;
+  color: #ffffff;
 }
 
 .dark .lesson-title {
-  color: #000000;
+  color: #ffffff;
 }
 
 .dark .lesson-duration {
-  color: #000000;
+  color: #ffffff;
 }
 
 .dark .info-box {
   background: #0f1724;
   border-color: #1f2a37;
-  color: #000000;
+  color: #ffffff;
 }
 
 .dark .muted {
-  color: #000000;
+  color: #ffffff;
 }
 
 /* Dark mode button text colors */
@@ -807,4 +807,94 @@
 
 .dark button[type="button"] {
   color: #ffffff;
+}
+
+/* ===== DARK MODE STYLES FOR REVIEWS ===== */
+.dark .reviews-container {
+  background: transparent !important;
+}
+
+.dark .review-card-screenshot {
+  background: #0f1724;
+  border-color: #1f2a37;
+  color: #ffffff;
+}
+
+.dark .review-card-screenshot h6 {
+  color: #ffffff;
+}
+
+.dark .review-text-screenshot {
+  color: #ffffff;
+}
+
+.dark .review-card-screenshot .text-success {
+  color: #ffd700 !important;
+}
+
+.dark .review-card-screenshot .bi-star-fill {
+  color: #ffd700 !important;
+}
+
+.dark .review-text {
+  color: #ffffff;
+}
+
+/* Dark mode styles for resources */
+.dark .resources-panel {
+  background: #0f1724;
+  border-color: #1f2a37;
+}
+
+.dark .resource-item {
+  background-color: #0f1724;
+  border-bottom-color: #1f2a37;
+}
+
+.dark .resource-item:hover {
+  background-color: #1e293b;
+}
+
+.dark .resource-download-link {
+  color: #ffffff !important;
+  background-color: #4aa3ff !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  text-decoration: none !important;
+}
+
+.dark .resource-download-link:hover {
+  color: #ffffff !important;
+  background-color: #6bb3ff !important;
+}
+
+/* Dark mode styles for course buttons */
+.dark .btn-learn {
+  background: #4aa3ff !important;
+  color: #ffffff !important;
+}
+
+.dark .btn-learn:hover {
+  background: #6bb3ff !important;
+  color: #ffffff !important;
+}
+
+.dark .btn-download {
+  background: #4aa3ff !important;
+  color: #ffffff !important;
+}
+
+.dark .btn-download:hover {
+  background: #6bb3ff !important;
+  color: #ffffff !important;
+}
+
+.dark .btn-continue {
+  background: #4aa3ff !important;
+  color: #ffffff !important;
+}
+
+.dark .btn-continue:hover {
+  background: #6bb3ff !important;
+  color: #ffffff !important;
 }
