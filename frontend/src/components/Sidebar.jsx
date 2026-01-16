@@ -136,6 +136,7 @@ function Sidebar({ isOpen, setIsOpen }) {
       },
     ] : []),
     ...(userRole === 'parent' ? [
+      { path: "/profile", label: "Profile", icon: <LuUser /> },
       { path: "/parent/student-report", label: "Student Reports", icon: <MdSchool /> },
       { path: "/parent/announcements", label: "Announcements", icon: <MdAnnouncement /> },
       { path: "/messages", label: "Messages", icon: <MdMessage /> }
@@ -146,7 +147,7 @@ function Sidebar({ isOpen, setIsOpen }) {
     ...(userRole !== 'instructor' && userRole !== 'admin' && userRole !== 'sub-admin' && userRole !== 'parent' ? [
       { path: "/leaderboard", label: "Leaderboard", icon: <LuTrophy /> },
     ] : []),
-    { path: "/profile", label: "Profile", icon: <LuUser /> },
+    ...(userRole === 'parent' ? [] : [{ path: "/profile", label: "Profile", icon: <LuUser /> }]),
   ];
 
   const handleLogout = () => {
@@ -218,14 +219,21 @@ function Sidebar({ isOpen, setIsOpen }) {
                   className={({ isActive }) =>
                     isActive ? "nav-link active" : "nav-link"
                   }
-                  style={({ isActive }) => ({
-                    color: (isAnnouncementLink && hasNewAnnouncements && !isActive) || (isMessagesLink && hasUnreadMessages && !isActive) ? '#000000' : 'inherit',
-                    fontWeight: (isAnnouncementLink && hasNewAnnouncements && !isActive) || (isMessagesLink && hasUnreadMessages && !isActive) ? 'bold' : 'inherit',
-                    backgroundColor: (isAnnouncementLink && hasNewAnnouncements && !isActive) || (isMessagesLink && hasUnreadMessages && !isActive) ? '#f0f0f0' : 'inherit',
-                  })}
+                  style={({ isActive }) => {
+                    const highlightCond = (isAnnouncementLink && hasNewAnnouncements && !isActive) || (isMessagesLink && hasUnreadMessages && !isActive);
+                    return {
+                      color: isActive ? '#fff' : (highlightCond ? '#000000' : 'inherit'),
+                      fontWeight: highlightCond ? 'bold' : (isActive ? 700 : 'inherit'),
+                      backgroundColor: isActive ? '#2b6cb0' : (highlightCond ? '#f0f0f0' : 'inherit'),
+                    };
+                  }}
                   onClick={() => isMobile && setIsOpen(false)}
                 >
-                  <span className="nav-icon">{item.icon}</span>
+                  {(() => {
+                    const iconIsStudentReport = item.path === '/parent/student-report';
+                    const iconStyle = iconIsStudentReport && userRole === 'parent' ? { color: '#000' } : undefined;
+                    return <span className="nav-icon" style={iconStyle}>{item.icon}</span>;
+                  })()}
                   {item.label}
                 </NavLink>
               );

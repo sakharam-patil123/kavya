@@ -98,6 +98,20 @@ export async function uploadProfilePhoto(file) {
   return res.json();
 }
 
+export async function deleteProfilePhoto() {
+  const res = await fetch(`${BASE}/users/photo`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to delete profile photo');
+  }
+
+  return res.json();
+}
+
 // Get user streak
 export async function getStreak() {
   const res = await fetch(`${BASE}/users/streak`, { headers: authHeaders() });
@@ -241,6 +255,7 @@ export default {
   downloadCertificate,
   aiQuery,
   uploadProfilePhoto,
+  deleteProfilePhoto,
   updateProfile,
   getStreak
   ,getUpcomingClasses

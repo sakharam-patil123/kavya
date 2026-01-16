@@ -18,6 +18,16 @@ function Header({ onToggleSidebar, children }) {
   const [userAvatar, setUserAvatar] = useState("");
   const [userInitials, setUserInitials] = useState("");
 
+  // Normalize avatar values coming from localStorage/backend
+  const normalizeAvatar = (val) => {
+    if (!val) return "";
+    if (typeof val !== 'string') return "";
+    const trimmed = val.trim();
+    if (!trimmed) return "";
+    if (trimmed.toLowerCase() === 'null' || trimmed.toLowerCase() === 'undefined') return "";
+    return trimmed;
+  };
+
   // Search state & handlers
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -687,7 +697,7 @@ function Header({ onToggleSidebar, children }) {
         const user = JSON.parse(storedUser);
         const genderNormalized = (user.gender || "").toString().toLowerCase();
         setUserGender(genderNormalized);
-        setUserAvatar(user.avatar || "");
+        setUserAvatar(normalizeAvatar(user.avatar));
         
         // Generate initials: get first char of first and last name, or first 2 chars if single word
         const fullName = (user.fullName || "").trim();
@@ -754,7 +764,7 @@ function Header({ onToggleSidebar, children }) {
           const user = JSON.parse(storedUser);
           const genderNormalized = (user.gender || "").toString().toLowerCase();
           setUserGender(genderNormalized);
-          setUserAvatar(user.avatar || "");
+          setUserAvatar(normalizeAvatar(user.avatar));
 
           const fullName = (user.fullName || "").trim();
           let initials = "";

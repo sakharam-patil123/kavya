@@ -8,6 +8,7 @@ export default function StudentReport() {
   const [children, setChildren] = useState([]);
   const [selectedChildId, setSelectedChildId] = useState(null);
   const [report, setReport] = useState(null);
+  const [showReport, setShowReport] = useState(false);
   const [loadingChildren, setLoadingChildren] = useState(true);
   const [loadingReport, setLoadingReport] = useState(false);
   const [error, setError] = useState(null);
@@ -87,8 +88,10 @@ export default function StudentReport() {
       setChildren(ch.data.children || []);
       const linked = ch.data.children && ch.data.children.find(c => c.email === linkEmail);
       if (linked) {
+        // select the newly linked child but do NOT auto-fetch report
         setSelectedChildId(linked._id);
-        await fetchReport(linked._id);
+        setShowReport(false);
+        setReport(null);
       }
       setLinkEmail('');
     } catch (err) {
@@ -111,6 +114,7 @@ export default function StudentReport() {
       if (selectedChildId === studentId) {
         setSelectedChildId(null);
         setReport(null);
+        setShowReport(false);
       }
     } catch (err) {
       const msg = err?.response?.data?.message || err.message || 'Failed to unlink student';
@@ -124,9 +128,11 @@ export default function StudentReport() {
     return () => clearTimeout(t);
   }, [toast.visible]);
 
+  // Do NOT auto-fetch when selection changes. Fetch only when Show report is clicked.
   useEffect(() => {
-    if (!selectedChildId) return;
-    fetchReport(selectedChildId);
+    // clear any previously loaded report when selection changes
+    setReport(null);
+    setShowReport(false);
   }, [selectedChildId]);
 
   return (
@@ -166,7 +172,7 @@ export default function StudentReport() {
             </div>
 
             <div style={{ marginTop: 12 }}>
-              <button onClick={() => fetchReport(selectedChildId)} disabled={!selectedChildId || loadingReport} className={styles.showButton}>
+              <button onClick={async () => { if (!selectedChildId) return; setShowReport(true); await fetchReport(selectedChildId); }} disabled={!selectedChildId || loadingReport} className={styles.showButton}>
                 {loadingReport ? 'Loading...' : 'Show report'}
               </button>
             </div>
@@ -184,10 +190,14 @@ export default function StudentReport() {
         </div>
 
         <div className={styles.rightPanel}>
-          {!report ? (
+          {!showReport ? (
             <div className={styles.dashedBox}>
               Select a student to view their report card
             </div>
+          ) : loadingReport ? (
+            <div className={styles.dashedBox}>Loading report...</div>
+          ) : !report ? (
+            <div className={styles.dashedBox}>No report available for the selected student.</div>
           ) : (
             <div className={styles.reportCard}>
               <h3 style={{ marginTop: 0 }}>{report.fullName}</h3>

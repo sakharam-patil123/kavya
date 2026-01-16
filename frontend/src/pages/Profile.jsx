@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from 'axios';
 import AppLayout from "../components/AppLayout";
 import SmallChatBox from "../components/SmallChatBox";
 import avatarFemale from "../assets/avatar-female.svg";
@@ -15,6 +16,7 @@ import {
   Award,
   TrendingUp,
   Edit3,
+  Users,
 } from "lucide-react";
 import {
   LineChart,
@@ -53,6 +55,7 @@ export default function Profile() {
   const [streakDays, setStreakDays] = useState(0);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [userRole, setUserRole] = useState('student'); // Default to student
+  const [childName, setChildName] = useState('');
 
   
 
@@ -96,6 +99,32 @@ export default function Profile() {
               ? `Joined ${new Date(profileRes.createdAt).toLocaleString()}`
               : prev.joined,
           }));
+          // If the user is a parent, fetch linked children and show child name in profile
+          try {
+            const roleNormalized = (profileRes.role || localStorage.getItem('userRole') || '').toString().toLowerCase();
+            if (roleNormalized === 'parent') {
+              const token = localStorage.getItem('token');
+              try {
+                const childrenRes = await axios.get('/api/parents/students', { headers: { Authorization: `Bearer ${token}` } });
+                const children = childrenRes.data.children || [];
+                if (children.length === 1) setChildName(children[0].fullName || '');
+                else if (children.length > 1) setChildName(children.map(c => c.fullName).join(', '));
+                else setChildName('No linked children');
+              } catch (e) {
+                setChildName('No linked children');
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+          try {
+            // Keep localStorage user in sync so Header and other components update
+            const userToStore = { ...profileRes };
+            localStorage.setItem('user', JSON.stringify(userToStore));
+            window.dispatchEvent(new Event('userUpdated'));
+          } catch (e) {
+            // ignore storage errors
+          }
         }
 
         // Load streak
@@ -296,12 +325,51 @@ export default function Profile() {
           ...prev,
           avatar: result.avatar,
         }));
+        try {
+          // Update stored user and notify other components (Header)
+          const stored = localStorage.getItem('user');
+          if (stored) {
+            const u = JSON.parse(stored);
+            u.avatar = result.avatar;
+            localStorage.setItem('user', JSON.stringify(u));
+          } else {
+            // store minimal user object if none exists
+            localStorage.setItem('user', JSON.stringify({ avatar: result.avatar, fullName: profile.name, role: userRole }));
+          }
+          window.dispatchEvent(new Event('userUpdated'));
+        } catch (e) {}
         alert("✅ Profile photo uploaded successfully!");
       }
     } catch (error) {
       alert(error.message || "Failed to upload photo. Please try again.");
     } finally {
       setUploadingPhoto(false);
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    if (!profile.avatar) return;
+    if (!window.confirm('Delete current profile photo?')) return;
+    try {
+      const api = await import('../api');
+      await api.deleteProfilePhoto();
+      setProfile(prev => ({ ...prev, avatar: null }));
+      try {
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          const u = JSON.parse(stored);
+          u.avatar = null;
+          localStorage.setItem('user', JSON.stringify(u));
+          // Notify other components (Header) to refresh
+          window.dispatchEvent(new Event('userUpdated'));
+        }
+      } catch (e) {
+        // ignore localStorage errors
+      }
+      alert('✅ Profile photo deleted');
+    } catch (err) {
+      console.error('Failed to delete profile photo', err);
+      alert(err?.message || 'Failed to delete profile photo');
     }
   };
 
@@ -335,6 +403,18 @@ export default function Profile() {
           phone: updated.phone ?? prev.phone,
           avatar: updated.avatar ?? prev.avatar,
         }));
+        try {
+          const stored = localStorage.getItem('user');
+          if (stored) {
+            const u = JSON.parse(stored);
+            u.fullName = updated.fullName || u.fullName;
+            if (updated.avatar) u.avatar = updated.avatar;
+            localStorage.setItem('user', JSON.stringify(u));
+          } else {
+            localStorage.setItem('user', JSON.stringify({ fullName: updated.fullName, avatar: updated.avatar, role: userRole }));
+          }
+          window.dispatchEvent(new Event('userUpdated'));
+        } catch (e) {}
         alert('✅ Profile updated successfully!');
       }
     } catch (err) {
@@ -406,7 +486,7 @@ export default function Profile() {
                     <Phone size={16} /> {profile.phone}
                   </div>
                   <div className="contact-item">
-                    <Calendar size={16} /> {profile.joined}
+                    {userRole === 'parent' ? <Users size={16} /> : <Calendar size={16} />} {userRole === 'parent' ? (childName || 'No linked children') : profile.joined}
                   </div>
                 </div>
               </div>
@@ -620,7 +700,7 @@ export default function Profile() {
         )}
 
         {profile.avatar && (
-          <div style={{ marginTop: "0.5rem" }}>
+          <div style={{ marginTop: "0.5rem", display: 'flex', alignItems: 'center', gap: 12 }}>
             <img
               src={profile.avatar}
               alt="Preview"
@@ -631,6 +711,15 @@ export default function Profile() {
                 objectFit: "cover",
               }}
             />
+            <div>
+              <button
+                type="button"
+                onClick={handleDeletePhoto}
+                style={{ padding: '6px 10px', background: '#fff', border: '1px solid #e74c3c', color: '#e74c3c', borderRadius: 6, cursor: 'pointer' }}
+              >
+                Delete Photo
+              </button>
+            </div>
           </div>
         )}
       </div>
