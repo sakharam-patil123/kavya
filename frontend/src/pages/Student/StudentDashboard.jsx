@@ -72,8 +72,8 @@ const StudentDashboard = () => {
           <div className="stat-card">
             <div className="stat-icon">⏱️</div>
             <div className="stat-content">
-              <h3>{dashboard.overview.totalStudyHours}h</h3>
-              <p>Study Hours</p>
+              <h3>{Math.round(dashboard.overview.totalStudyHours * 10) / 10}h</h3>
+              <p>Hours Learned</p>
             </div>
           </div>
 

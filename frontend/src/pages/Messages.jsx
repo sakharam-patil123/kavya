@@ -439,7 +439,7 @@ export default function Messages() {
   return (
     <AppLayout showGreeting={false}>
       <div style={{ display: 'flex', gap: 18, padding: 20, height: 'calc(100vh - 120px)', boxSizing: 'border-box', overflow: 'hidden' }}>
-        <div style={{ width: 320, background: '#fff', borderRadius: 8, padding: 12, boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}>
+        <div style={{ width: 320, background: '#fff', borderRadius: 8, padding: 12, boxShadow: '0 2px 6px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box' }}>
           <h3 style={{ marginTop: 0 }}>Students</h3>
           <div style={{ marginBottom: 12 }}>
             <input
@@ -460,7 +460,7 @@ export default function Messages() {
           {loadingStudents ? (
             <div>Loading students...</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '70vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, overflowY: 'auto', overflowX: 'auto', boxSizing: 'border-box', paddingRight: 6 }}>
               {getSortedStudents(students)
                 .filter((s) => {
                   const searchLower = searchQuery.toLowerCase();
@@ -469,7 +469,7 @@ export default function Messages() {
                   return fullName.includes(searchLower) || email.includes(searchLower);
                 })
                 .map((s) => (
-                <div key={s._id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div key={s._id} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, width: '100%' }}>
                   <button
                     onClick={() => loadConversation(s)}
                     style={{

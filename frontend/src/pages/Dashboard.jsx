@@ -55,8 +55,8 @@ function Dashboard() {
 
   // UPCOMING CLASSES
   const upcoming = [
-    { title: "Mathematics", date: "15 January 2026, 1:00 PM" },
-    { title: "Physics", date: "20 February 2026, 10:00 AM" },
+    { title: "Mathematics", date: "25 february 2026, 1:00 PM" },
+    { title: "Physics", date: "10 March 2026, 10:00 AM" },
     { title: "Chemistry", date: "25 March 2026, 2:00 PM"},
   ];
 
