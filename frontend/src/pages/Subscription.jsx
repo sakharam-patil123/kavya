@@ -148,7 +148,7 @@ function CourseListing({ onCourseSelect }) {
                 reviews: course.reviews || 0,
                 isPremium: course.isPremium !== false,
                 tutor: course.instructor?.fullName || 'KavyaLearn',
-                sellingStatus: course.isPublished ? 'Course Selling' : 'Coming Soon',
+                // sellingStatus: course.isPublished ? 'Course Selling' : ,
                 totalStudents: `${course.enrolledStudents?.length || 0} students`,
                 overview: course.description?.substring(0, 100) || 'Learn from experts',
                 description: course.description || 'No description available',
@@ -348,8 +348,8 @@ function CourseDetail({ course, onBack }) {
           <h1 className="course-title-large">{course.title}</h1>
 
           <div className="course-meta">
-            <span className="status-badge">{course.sellingStatus}</span>
-            <span className="course-tutor">Tutor: {course.tutor}</span>
+            {/* <span className="status-badge">{course.sellingStatus}</span> */}
+            <span className="course-tutor" style={{ marginLeft: '10px' }}>Tutor: {course.tutor}</span>
             <div className="rating-display">
               <Star size={16} className="rating-icon" />
               <span className="rating-value">{course.rating}</span>
@@ -413,83 +413,8 @@ function CourseDetail({ course, onBack }) {
           </div>
         </div>
 
-        <div className="ratings-section">
-          <h2 className="section-title">Learner's Ratings</h2>
+        
 
-          <div className="ratings-content">
-            <div className="ratings-summary">
-              <div className="ratings-overall">{course.ratings.overall}</div>
-              <div className="ratings-stars">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    size={20}
-                    className={
-                      i < Math.floor(course.ratings.overall)
-                        ? "star-filled"
-                        : "star-empty"
-                    }
-                  />
-                ))}
-              </div>
-              <p className="ratings-label">Course Rating</p>
-            </div>
-
-            <div className="ratings-breakdown">
-              {course.ratings.breakdown.map((item, index) => (
-                <div key={index} className="rating-item">
-                  <div className="rating-stars">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        size={14}
-                        className={
-                          i < item.stars ? "star-filled" : "star-empty"
-                        }
-                      />
-                    ))}
-                  </div>
-                  <div className="rating-bar-container">
-                    <div
-                      className="rating-bar"
-                      style={{ width: `${item.percentage}%` }}
-                    />
-                  </div>
-                  <span className="rating-percentage">{item.percentage}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="faqs-section">
-          <h2 className="section-title">FAQs</h2>
-          <div className="faqs-list">
-            {course.faqs &&
-              course.faqs.map((faq, index) => (
-                <div
-                  key={index}
-                  className={`faq-item ${
-                    expandedFaqs[index] ? "faq-item-expanded" : ""
-                  }`}
-                  onClick={() => toggleFaq(index)}
-                >
-                  <div className="faq-header">
-                    <ChevronRight
-                      size={20}
-                      className={`faq-icon ${
-                        expandedFaqs[index] ? "faq-icon-expanded" : ""
-                      }`}
-                    />
-                    <span className="faq-question">{faq.question}</span>
-                  </div>
-                  {expandedFaqs[index] && faq.answer && (
-                    <div className="faq-answer">{faq.answer}</div>
-                  )}
-                </div>
-              ))}
-          </div>
-        </div>
       </div>
     </div>
   );
