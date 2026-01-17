@@ -35,7 +35,32 @@ const AdminAnnouncements = () => {
   const loadAnnouncements = async () => {
     try {
       const data = await listAnnouncements();
-      setMessages(Array.isArray(data) ? data : []);
+      let announcementData = Array.isArray(data) ? data : [];
+      
+      // Remove duplicates by ID - keep only unique announcements
+      const uniqueMap = new Map();
+      const seenIds = new Set();
+      
+      announcementData.forEach(msg => {
+        const id = msg._id || msg.id;
+        if (id) {
+          // Convert ID to string to ensure consistent comparison
+          const idStr = String(id);
+          if (!seenIds.has(idStr)) {
+            seenIds.add(idStr);
+            uniqueMap.set(idStr, msg);
+          }
+        }
+      });
+      
+      // Convert Map back to array and sort by creation date (newest first)
+      announcementData = Array.from(uniqueMap.values()).sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0);
+        const dateB = new Date(b.createdAt || 0);
+        return dateB - dateA; // Descending order (newest first)
+      });
+      
+      setMessages(announcementData);
       setError(null);
     } catch (err) {
       console.error('Error loading announcements:', err);
@@ -156,11 +181,10 @@ const AdminAnnouncements = () => {
       }
 
       // Send to backend
-      const newAnnouncement = await createAnnouncement(announcementData);
+      await createAnnouncement(announcementData);
 
-      // Add to local state
-      const updatedMessages = [...messages, newAnnouncement];
-      setMessages(updatedMessages);
+      // Reload announcements from API to ensure no duplicates and get latest data
+      await loadAnnouncements();
 
       // Reset inputs
       setInputText('');
@@ -318,7 +342,7 @@ const AdminAnnouncements = () => {
             ) : messages.length === 0 ? (
               <div className="no-messages">No announcements yet. Start typing below...</div>
             ) : (
-              messages.map((msg, idx) => (
+              [...messages].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)).map((msg, idx) => (
                 <div key={msg._id || msg.id || `ann-${idx}`} className="message admin-message">
                   <div className="message-header">
                     <span className="admin-badge">Admin</span>

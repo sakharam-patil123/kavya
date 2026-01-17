@@ -154,3 +154,50 @@
     font-size: 11px;
   }
 }
+
+/* Dark mode: Make all text black for readability */
+.dark .announcements-page,
+.dark .announcements-page *,
+.dark .announcements-page h2,
+.dark .announcements-page p,
+.dark .announcements-page div,
+.dark .announcements-page span,
+.dark .announcements-page strong {
+  color: #000 !important;
+}
+
+.dark .announcements-page .message-text {
+  color: #000 !important;
+}
+
+.dark .announcements-page .message-title,
+.dark .announcements-page .message-title strong {
+  color: #000 !important;
+}
+
+.dark .announcements-page .message-time {
+  color: #666 !important;
+}
+
+.dark .announcements-page .no-announcements {
+  color: #666 !important;
+  background: #f5f5f5 !important;
+}
+
+.dark .announcements-page .error-message {
+  color: #d32f2f !important;
+}
+
+.dark .announcements-page .message-file-link {
+  color: #2196F3 !important;
+}
+
+.dark .announcements-page .announcement-message {
+  background: #ffffff !important;
+  border: 1px solid #90caf9 !important;
+}
+
+.dark .announcements-page .admin-badge {
+  background: #2196F3 !important;
+  color: white !important;
+}
