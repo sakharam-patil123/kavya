@@ -269,7 +269,7 @@ exports.getStudentCourse = async (req, res) => {
           _id: enrollmentDoc._id,
           course: enrollmentDoc.courseId || enrollmentDoc.course,
           enrollmentStatus: enrollmentDoc.enrollmentStatus,
-          progressPercentage: enrollmentDoc.progressPercentage ?? 0,
+          progressPercentage: enrollmentDoc.progressPercentage || 0,
           completedLessons: enrollmentDoc.completedLessons || [],
           completed: enrollmentDoc.completed || false,
           isFree: enrollmentDoc.isFree === true,
@@ -351,23 +351,6 @@ exports.completeLesson = async (req, res) => {
     }
 
     await student.save();
-
-    // Also sync with Enrollment collection to ensure per-course persistence
-    try {
-      const enrollmentDoc = await Enrollment.findOne({ studentId: student._id, courseId });
-      if (enrollmentDoc) {
-        enrollmentDoc.completedLessons = enrollment.completedLessons;
-        enrollmentDoc.progressPercentage = enrollment.completionPercentage ?? 0;
-        enrollmentDoc.watchHours = enrollment.hoursSpent || enrollmentDoc.watchHours || 0;
-        if (enrollment.completionPercentage === 100) {
-          enrollmentDoc.completed = true;
-          enrollmentDoc.enrollmentStatus = 'completed';
-        }
-        await enrollmentDoc.save();
-      }
-    } catch (err) {
-      console.warn('Failed to sync enrollment progress to Enrollment collection:', err.message);
-    }
 
     res.json({
       success: true,
@@ -513,31 +496,6 @@ exports.enrollCourse = async (req, res) => {
       completionPercentage: 0
     });
 
-    // Ensure there is an Enrollment document for this student/course to persist per-course progress
-    try {
-      const existingEnrollment = await Enrollment.findOne({ studentId: student._id, courseId: req.params.courseId });
-      if (!existingEnrollment) {
-        await Enrollment.create({
-          studentId: student._id,
-          courseId: req.params.courseId,
-          enrollmentStatus: 'active',
-          progressPercentage: 0,
-          completedLessons: [],
-          watchHours: 0,
-          purchaseStatus: course && course.price && course.price > 0 ? 'paid' : 'free'
-        });
-      } else {
-        // If it exists but is missing fields, make sure defaults exist
-        existingEnrollment.progressPercentage = existingEnrollment.progressPercentage ?? 0;
-        existingEnrollment.completedLessons = existingEnrollment.completedLessons || [];
-        existingEnrollment.watchHours = existingEnrollment.watchHours || 0;
-        if (existingEnrollment.enrollmentStatus !== 'active') existingEnrollment.enrollmentStatus = 'active';
-        await existingEnrollment.save();
-      }
-    } catch (err) {
-      console.warn('Could not create/sync Enrollment record during enrollCourse:', err.message);
-    }
-
     // Add to course's enrolled students
     if (!course.enrolledStudents.includes(student._id)) {
       course.enrolledStudents.push(student._id);
@@ -603,8 +561,8 @@ exports.getEnrolledCourses = async (req, res) => {
         instructor: ec.course.instructor,
         accessType: 'Paid',
         progress: {
-          completionPercentage: ec.completionPercentage ?? 0,
-          hoursSpent: ec.hoursSpent ?? 0
+          completionPercentage: ec.completionPercentage || 0,
+          hoursSpent: ec.hoursSpent || 0
         }
       };
     });
@@ -628,8 +586,8 @@ exports.getEnrolledCourses = async (req, res) => {
           instructor: c.instructor,
           accessType,
           progress: {
-            completionPercentage: e.progressPercentage ?? (e.completed ? 100 : 0),
-            hoursSpent: e.watchHours ?? 0
+            completionPercentage: e.progressPercentage || (e.completed ? 100 : 0),
+            hoursSpent: e.watchHours || 0
           }
         };
       } else {

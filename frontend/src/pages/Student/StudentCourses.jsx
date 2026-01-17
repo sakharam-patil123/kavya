@@ -6,7 +6,6 @@ import './StudentCourses.css';
 
 const StudentCourses = () => {
   const [courses, setCourses] = useState([]);
-  const [progressByCourseId, setProgressByCourseId] = useState({});
   const [loading, setLoading] = useState(true);
   const [courseDetail, setCourseDetail] = useState(null);
   const [loadingCertCourseId, setLoadingCertCourseId] = useState(null);
@@ -24,14 +23,7 @@ const StudentCourses = () => {
   const loadCourses = async () => {
     try {
       const res = await axiosClient.get('/api/student/courses');
-      const list = res.data.data || [];
-      setCourses(list);
-      // Build per-course progress map so progress is scoped per courseId
-      const map = {};
-      list.forEach(c => {
-        map[c._id] = c.completionPercentage ?? 0;
-      });
-      setProgressByCourseId(map);
+      setCourses(res.data.data || []);
     } catch (error) {
       console.error('Failed to load courses:', error);
     } finally {
@@ -121,7 +113,7 @@ const StudentCourses = () => {
             <h2>{courseDetail.course.title}</h2>
             <p>By {courseDetail.course.instructor?.fullName || 'Unknown'}</p>
             <div style={{ marginTop: 12 }}>
-              <strong>Progress:</strong> {courseDetail.enrollment?.completionPercentage ?? courseDetail.enrollment?.hoursSpent ?? 0}%
+              <strong>Progress:</strong> {courseDetail.enrollment?.completionPercentage || courseDetail.enrollment?.hoursSpent || 0}%
             </div>
             {/* Render lessons if available */}
             <div style={{ marginTop: 16 }}>
@@ -182,12 +174,12 @@ const StudentCourses = () => {
                         <div className="progress-section">
                           <div className="progress-info">
                             <span>Progress</span>
-                            <span className="progress-percentage">{progressByCourseId[course._id] ?? 0}%</span>
+                            <span className="progress-percentage">{course.completionPercentage}%</span>
                           </div>
                           <div className="progress-bar">
                             <div 
                               className="progress-fill" 
-                              style={{ width: `${progressByCourseId[course._id] ?? 0}%` }}
+                              style={{ width: `${course.completionPercentage}%` }}
                             ></div>
                           </div>
                         </div>
@@ -209,7 +201,7 @@ const StudentCourses = () => {
                         </div>
 
                         {/* Status Badge */}
-                        {progressByCourseId[course._id] === 100 && course.certificateDownloadedAt && (
+                        {course.completionPercentage === 100 && course.certificateDownloadedAt && (
                           <div className="status-badge completed">
                             ✓ Completed
                           </div>
@@ -221,9 +213,9 @@ const StudentCourses = () => {
                             className="btn btn-continue"
                             onClick={() => handleContinueLearning(course._id)}
                           >
-                            {progressByCourseId[course._id] === 100 ? 'Review' : 'Continue Learning'}
+                            {course.completionPercentage === 100 ? 'Review' : 'Continue Learning'}
                           </button>
-                          {progressByCourseId[course._id] === 100 && (
+                          {course.completionPercentage === 100 && (
                             <button
                               className="btn btn-download-cert"
                               onClick={() => handleDownloadCertificate(course._id, course.title)}

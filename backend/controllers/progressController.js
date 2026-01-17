@@ -42,7 +42,7 @@ exports.getProgressOverview = async (req, res) => {
     const enrolledCourses = user.enrolledCourses || [];
     const enrolledCoursesCount = enrolledCourses.length;
     const learningHours =
-      enrolledCourses.reduce((sum, ec) => sum + (ec.hoursSpent ?? 0), 0) ||
+      enrolledCourses.reduce((sum, ec) => sum + (ec.hoursSpent || 0), 0) ||
       user.totalHoursLearned ||
       0;
     const achievementsCount = (user.achievements || []).length;
@@ -54,7 +54,7 @@ exports.getProgressOverview = async (req, res) => {
     let avgCompletion = 0;
     if (enrolledCourses.length > 0) {
       const totalCompletion = enrolledCourses.reduce(
-        (sum, ec) => sum + (ec.completionPercentage ?? 0),
+        (sum, ec) => sum + (ec.completionPercentage || 0),
         0
       );
       avgCompletion = Math.round(totalCompletion / enrolledCourses.length);
@@ -94,8 +94,8 @@ const quizAgg = await Quiz.aggregate([
 ]);
 
 
-      if (quizAgg && quizAgg.length > 0) {
-      avgScore = Math.round(quizAgg[0].avgPercentage ?? 0);
+    if (quizAgg && quizAgg.length > 0) {
+      avgScore = Math.round(quizAgg[0].avgPercentage || 0);
     }
 
     const skillBase = avgScore || avgCompletion;
@@ -132,7 +132,7 @@ const quizAgg = await Quiz.aggregate([
     // Certificates derived from enrolled courses
     const certificates = enrolledCourses.map((enrollment) => {
       const course = enrollment.course || {};
-      const completionPercent = enrollment.completionPercentage ?? 0;
+      const completionPercent = enrollment.completionPercentage || 0;
       let status = 'Pending';
       
       // For now, make all enrolled courses eligible for certificates (completion >= 0)
