@@ -6,6 +6,8 @@ const enrollmentSchema = new mongoose.Schema({
   enrolledAt: { type: Date, default: Date.now },
   progressPercentage: { type: Number, default: 0 },
   completed: { type: Boolean, default: false },
+  // Track completed lesson ids for this enrollment (per-course)
+  completedLessons: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Lesson' }],
   watchHours: { type: Number, default: 0 },
   lastAccessed: { type: Date },
   grade: { type: String },

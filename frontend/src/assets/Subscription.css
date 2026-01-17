@@ -103,7 +103,10 @@ body {
 
 .course-card-content {
   position: relative;
-  padding: 1.5rem;
+  padding: 1rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .premium-badge {
@@ -121,7 +124,7 @@ body {
 .course-image-container {
   display: flex;
   justify-content: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .course-image-wrapper {
@@ -142,36 +145,83 @@ body {
 
 .course-info {
   text-align: center;
-  margin-bottom: 1rem;
+  margin: 0; /* remove extra spacing so title sits just below the icon */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.course-language {
-  font-size: 0.875rem;
-  color: #4b5563;
-  margin-bottom: 0.5rem;
+.language-badge {
+  position: absolute;
+  top: 3.2rem; /* placed under premium badge */
+  right: 1rem;
+  font-size: 0.75rem;
+  color: #2563eb; /* blue text for badge */
+  margin: 0;
+  display: inline-block;
+  background: #ffffff;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
+  font-weight: 600;
+  z-index: 5;
 }
 
 .course-title {
   font-size: 1.125rem;
   font-weight: 700;
   color: #111827;
-  min-height: 3.5rem;
+  margin-top: 0.5rem;
+  min-height: 2.5rem; /* reduce min height so title appears closer under icon */
+  text-align: center;
+}
+
+.course-price {
+  font-size: 1.5rem;
+  color: #1e40af; /* blue accent */
+  font-weight: 700;
+  margin-top: 0.25rem;
+  display: block;
+  text-align: center;
+  width: 100%;
 }
 
 .course-stats {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 1.5rem;
+  justify-content: space-between; /* left: students, right: rating */
+  gap: 1rem;
   margin-bottom: 1rem;
   font-size: 0.875rem;
   color: #4b5563;
+  width: 100%;
+  /* visual pill container */
+  background: #ffffff;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.04);
 }
 
 .course-stat {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+}
+
+/* Keep icons and their text on a single line */
+.course-stats {
+  flex-wrap: nowrap;
+}
+.course-stat span {
+  white-space: nowrap;
+}
+
+/* Ensure left stat stays left and rating sits at the right edge */
+.course-stat:first-child {
+  justify-content: flex-start;
+}
+.course-stat:last-child {
+  justify-content: flex-end;
 }
 
 .course-stat-icon {
