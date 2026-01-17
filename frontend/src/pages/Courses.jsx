@@ -1403,23 +1403,52 @@ export default function Courses() {
   const [enrolled, setEnrolled] = useState(false);
 
   // Keep track of watched lesson titles to compute progress
-  // We'll persist watched lessons per-user in localStorage under key `watchedLessons_{userId}`
+  // We'll persist watched lessons per-user *per-course* in localStorage under key `watchedLessons_{userId}`
+  // The value is an object mapping { [courseId]: [lessonTitle, ...] }
   const [userProfile, setUserProfile] = useState(null);
-  const [watchedLessons, setWatchedLessons] = useState([]);
+  const [watchedByCourse, setWatchedByCourse] = useState({});
+  // Server-side enrollment/progress load state: keep UI at 0% until backend confirms progress
+  const [serverProgressLoaded, setServerProgressLoaded] = useState(false);
+  const [serverProgressValue, setServerProgressValue] = useState(null); // percent (0-100) or null
   const [enrolledCourseTitle, setEnrolledCourseTitle] = useState('Complete Ethical Hacking Course');
 
-  // Helper to persist watched lessons for the current user
-  const persistWatchedLessons = (lessonsArray) => {
-    setWatchedLessons(lessonsArray || []);
-    try {
-      const key = userProfile && userProfile._id ? `watchedLessons_${userProfile._id}` : 'watchedLessons_guest';
-      window.localStorage.setItem(key, JSON.stringify(lessonsArray || []));
-    } catch (err) {
-      console.warn('Could not persist watched lessons', err);
-    }
+  // Get watched lessons for a course id
+  const getWatchedFor = (courseId) => {
+    if (!courseId) return [];
+    return watchedByCourse[courseId] || [];
+  };
+
+  // Persist watched lessons for a specific course and update local state + localStorage
+  const persistWatchedFor = (courseId, lessonsArray) => {
+    const cid = courseId || 'unknownCourse';
+    setWatchedByCourse((prev) => {
+      const next = Object.assign({}, prev, { [cid]: lessonsArray || [] });
+      try {
+        const key = userProfile && userProfile._id ? `watchedLessons_${userProfile._id}` : 'watchedLessons_guest';
+        const storedRaw = window.localStorage.getItem(key);
+        let stored = {};
+        if (storedRaw) {
+          try { stored = JSON.parse(storedRaw) || {}; } catch (e) { stored = {}; }
+        }
+        stored[cid] = lessonsArray || [];
+        window.localStorage.setItem(key, JSON.stringify(stored));
+      } catch (err) {
+        console.warn('Could not persist watched lessons by course', err);
+      }
+      return next;
+    });
   };
 
   const location = useLocation();
+  // Current course id (from URL) used to scope watched lessons locally
+  const currentCourseId = new URLSearchParams(location.search || window.location.search).get('id');
+
+  // Whenever we navigate to a different course, reset server progress loaded flag so
+  // UI shows 0% until the backend confirms the enrollment/progress for the new course.
+  useEffect(() => {
+    setServerProgressLoaded(false);
+    setServerProgressValue(null);
+  }, [currentCourseId]);
 
   // Helper: compute storage key for persisted enrolled flag scoped to user and course
   const getPersistedEnrolledKey = (uProfile = null, cId = null) => {
@@ -1601,6 +1630,14 @@ export default function Courses() {
           if (active && !persistedEnrolled) setEnrolled(isNowEnrolled);
           else if (active && persistedEnrolled && isNowEnrolled) setEnrolled(true);
 
+          // Mark server progress loaded for this course and record the server value (if provided)
+          try {
+            setServerProgressLoaded(true);
+            setServerProgressValue(typeof statusData.progressPercentage === 'number' ? statusData.progressPercentage : 0);
+          } catch (e) {
+            // ignore
+          }
+
           // If not yet active, poll a few times to catch asynchronous activation
           if (!isNowEnrolled) {
             const pendingEnrollmentId = statusData.enrollmentId || window.localStorage.getItem('currentEnrollmentId');
@@ -1639,6 +1676,11 @@ export default function Courses() {
                     if (retryData.enrollmentId) {
                       try { window.localStorage.setItem('currentEnrollmentId', retryData.enrollmentId); } catch (e) {}
                     }
+                    // Update server progress info from retry data
+                    try {
+                      setServerProgressLoaded(true);
+                      setServerProgressValue(typeof retryData.progressPercentage === 'number' ? retryData.progressPercentage : 0);
+                    } catch (e) {}
                     break;
                   }
                 } catch (e) {
@@ -1653,6 +1695,8 @@ export default function Courses() {
           if (!persistedEnrolled) {
             if (active) setEnrolled(false);
           }
+          // Mark server progress as loaded (no enrollment found -> 0%) so UI shows 0 until user takes action
+          try { setServerProgressLoaded(true); setServerProgressValue(0); } catch (e) {}
         }
       } catch (err) {
         console.warn('Could not verify enrollment status:', err);
@@ -1690,24 +1734,23 @@ export default function Courses() {
               window.localStorage.removeItem(guestKey);
             } catch (e) {}
           } catch (e) {}
-          // load per-user watched lessons
+          // load per-user watched lessons (stored as map by courseId)
           const key = `watchedLessons_${profileData._id}`;
           const raw = window.localStorage.getItem(key);
           if (raw) {
             try {
               const parsed = JSON.parse(raw);
-              setWatchedLessons(Array.isArray(parsed) ? parsed : []);
+              setWatchedByCourse(parsed && typeof parsed === 'object' ? parsed : {});
             } catch (e) {
-              setWatchedLessons([]);
+              setWatchedByCourse({});
             }
           } else {
-            // No stored watched lessons for this user: start with empty array (0% progress)
-            // Don't pre-populate with review lessons - let students earn their progress
-            setWatchedLessons([]);
+            // No stored watched lessons for this user: start with empty map (0% progress per course)
+            setWatchedByCourse({});
             try {
-              window.localStorage.setItem(key, JSON.stringify([]));
+              window.localStorage.setItem(key, JSON.stringify({}));
             } catch (err) {
-              console.warn('Failed to persist watched lessons', err);
+              console.warn('Failed to persist watched lessons map', err);
             }
           }
         }
@@ -2112,8 +2155,19 @@ export default function Courses() {
     practicalApplications.length +
     (newModules ? newModules.reduce((s, m) => s + (m.lessons ? m.lessons.length : 0), 0) : 0);
 
-  const watchedCount = (enrolled && watchedLessons) ? watchedLessons.length : 0;
-  const progressPercent = !enrolled ? 0 : (totalLessons > 0 ? Math.round((watchedCount / totalLessons) * 100) : 0);
+  const watchedCount = (enrolled && currentCourseId) ? getWatchedFor(currentCourseId).length : 0;
+  let progressPercent = 0;
+  if (!enrolled) {
+    progressPercent = 0;
+  } else if (!serverProgressLoaded) {
+    // show 0 until server confirms enrollment/progress
+    progressPercent = 0;
+  } else if (serverProgressValue !== null) {
+    // Prefer server-provided progress when available
+    progressPercent = serverProgressValue;
+  } else {
+    progressPercent = totalLessons > 0 ? Math.round((watchedCount / totalLessons) * 100) : 0;
+  }
 
 
 
@@ -2140,14 +2194,14 @@ export default function Courses() {
                 let dynamicIconClass = lesson.iconClass;
                 let dynamicBgClass = lesson.iconBgClass;
                 
-                const isWatched = watchedLessons && watchedLessons.includes(lesson.title);
+                const isWatched = getWatchedFor(currentCourseId).includes(lesson.title);
                 const currentLessonIndex = allLessonsInOrder.findIndex(l => l.title === lesson.title);
                 
                 // Check if previous lesson is watched (for sequential unlocking)
                 let isPreviousLessonWatched = true;
                 if (currentLessonIndex > 0) {
                   const previousLesson = allLessonsInOrder[currentLessonIndex - 1];
-                  isPreviousLessonWatched = watchedLessons && watchedLessons.includes(previousLesson.title);
+                  isPreviousLessonWatched = getWatchedFor(currentCourseId).includes(previousLesson.title);
                 }
                 
                 // Determine if lesson is available (first lesson or previous watched)
@@ -2191,14 +2245,14 @@ export default function Courses() {
               let visibleLabel = lesson.status;
 
               // Check if lesson is watched
-              const isWatched = watchedLessons && watchedLessons.includes(lesson.title);
+              const isWatched = getWatchedFor(currentCourseId).includes(lesson.title);
 
               // Pre-compute sequence unlocking so it can be referenced in onClick as well
               const currentLessonIndex = allLessonsInOrder.findIndex(l => l.title === lesson.title);
               let isPreviousLessonWatched = true;
               if (currentLessonIndex > 0) {
                 const previousLesson = allLessonsInOrder[currentLessonIndex - 1];
-                isPreviousLessonWatched = watchedLessons && watchedLessons.includes(previousLesson.title);
+                isPreviousLessonWatched = getWatchedFor(currentCourseId).includes(previousLesson.title);
               }
               const isLessonsUnlockedBySequence = currentLessonIndex === 0 || isPreviousLessonWatched;
 
@@ -2243,18 +2297,18 @@ export default function Courses() {
 
                     // Mark lesson as watched (persisted). Only add once.
                     if (lesson.title) {
-                      // persist per-user watched lessons
-                      setWatchedLessons((prev) => {
-                        const prevArr = Array.isArray(prev) ? prev : [];
-                        if (prevArr.includes(lesson.title)) return prevArr;
+                      // persist per-user watched lessons scoped to course
+                      const prevArr = getWatchedFor(currentCourseId);
+                      if (!prevArr.includes(lesson.title)) {
                         const updated = [...prevArr, lesson.title];
+                        persistWatchedFor(currentCourseId, updated);
                         try {
-                          const key = userProfile && userProfile._id ? `watchedLessons_${userProfile._id}` : 'watchedLessons_guest';
-                          window.localStorage.setItem(key, JSON.stringify(updated));
-                        } catch (err) {
-                          console.warn('Failed to persist watched lessons', err);
-                        }
-                        
+                          // Optimistically update displayed server progress so UI reflects new progress
+                          const optimisticPercent = totalLessons > 0 ? Math.round((updated.length / totalLessons) * 100) : 0;
+                          setServerProgressValue(optimisticPercent);
+                          setServerProgressLoaded(true);
+                        } catch (e) {}
+
                         // Call backend API to track hours and mark lesson complete
                         (async () => {
                           try {
@@ -2325,11 +2379,10 @@ export default function Courses() {
                           console.warn('Could not persist course completion date', err);
                         }
 
-                        return updated;
-                      });
-                    }
-                  }}
-                >
+                        }
+                      }
+                    }}
+                  >
                   {visibleLabel}
                 </button>
               );
@@ -2379,7 +2432,8 @@ export default function Courses() {
                   setTab("curriculum");
 
                   // Try to open the last watched lesson. If none, open the first available lesson.
-                  const lastWatched = watchedLessons && watchedLessons.length ? watchedLessons[watchedLessons.length - 1] : null;
+                  const _watched = getWatchedFor(currentCourseId);
+                  const lastWatched = _watched && _watched.length ? _watched[_watched.length - 1] : null;
 
                   // Helper to find a lesson by title across modules
                   const findLesson = (title) => {
