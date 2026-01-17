@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { IoLogOutOutline, IoPersonOutline } from "react-icons/io5";
-import { FiMoon, FiSun, FiSearch } from "react-icons/fi"; 
+import { FiSearch } from "react-icons/fi"; 
 import notification from "../assets/notification.png";
 import profile from "../assets/profile.png";
 import avatarFemale from "../assets/avatar-female.svg";
@@ -619,16 +619,6 @@ function Header({ onToggleSidebar, children }) {
     );
   }
 
-  // Theme state ('light' | 'dark') persisted in localStorage
-  const [theme, setTheme] = useState(() => {
-    try {
-      const t = localStorage.getItem('theme');
-      if (t) return t;
-    } catch (e) {}
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
-    return 'light';
-  });
- 
   // Notifications fetched from API
   const [notifications, setNotifications] = useState([]);
   const [selectedNotification, setSelectedNotification] = useState(null);
@@ -804,35 +794,6 @@ function Header({ onToggleSidebar, children }) {
     });
   };
 
-  const toggleTheme = () => {
-    try {
-      const next = theme === 'dark' ? 'light' : 'dark';
-      setTheme(next);
-      if (next === 'dark') document.documentElement.classList.add('dark');
-      else document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', next);
-    } catch (e) {
-      console.error('Theme toggle error', e);
-    }
-  };
-
-  // Ensure theme is applied and persisted; respond to external changes
-  useEffect(() => {
-    try {
-      if (theme === 'dark') document.documentElement.classList.add('dark');
-      else document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', theme);
-    } catch (e) {
-      console.error('Theme apply error', e);
-    }
-
-    const handleStorage = (e) => {
-      if (e.key === 'theme' && e.newValue) setTheme(e.newValue);
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, [theme]);
-
   const goToProfile = () => {
     // Close dropdown and navigate to profile page
     setShowDropdown(false);
@@ -849,39 +810,7 @@ function Header({ onToggleSidebar, children }) {
       </div>
  
       <div className="header-right" style={{ position: "relative" }}>
-        {/* Theme toggle (placed before notifications) */}
-        <div style={{ display: 'inline-block', marginRight: '12px' }}>
-          <button
-            onClick={toggleTheme}
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="header-theme-toggle"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--text)',
-              padding: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '20px',
-              transition: 'opacity 0.2s ease, transform 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.opacity = '0.7';
-              e.currentTarget.style.transform = 'scale(1.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.opacity = '1';
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-          >
-            {theme === 'dark' ? <FiSun size={22} /> : <FiMoon size={22} />}
-          </button>
-        </div>
-
-        {/* Global Search Bar (placed before notifications) */}
+        {/* Global Search Bar */}
         <div style={{ display: 'inline-block', marginRight: '12px', verticalAlign: 'middle' }}>
           <SearchBox />
         </div>
