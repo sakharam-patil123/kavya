@@ -1,6 +1,5 @@
 import { useState, useMemo,useEffect } from "react";
 import { useLocation } from 'react-router-dom';
-import SmallChatBox from "../components/SmallChatBox";
 import { Calendar, Bell } from "lucide-react";
 import "../assets/schedule.css";
 import AppLayout from "../components/AppLayout";
@@ -950,7 +949,7 @@ function Schedule() {
               Upcoming Classes
             </h5>
  
-            {classes.map((classItem, idx) => (
+            {upcomingClasses.map((classItem, idx) => (
               <div key={idx} className={`class-card ${highlightEventTitle === classItem.title ? 'highlighted-reminder' : ''}`} data-title={classItem.title} id={`class-${classItem._id || idx}`}>
                 <div className="d-flex justify-content-between align-items-start mb-3">
                   <div>
@@ -973,7 +972,7 @@ function Schedule() {
                       {classItem.instructor}
                     </p>
                   </div>
- 
+
                   <div className="d-flex gap-2">
                     {classItem.status === 'Completed' ? (
                       <button
@@ -1001,7 +1000,7 @@ function Schedule() {
                               alert('Please log in to set reminders');
                               return;
                             }
-                            
+
                             const reminderRes = await fetch('/api/events/reminder', {
                               method: 'POST',
                               headers: {
@@ -1014,7 +1013,7 @@ function Schedule() {
                                 reminderType: 'upcoming_class'
                               })
                             });
-                            
+
                             if (reminderRes.ok) {
                               setRemindersSet(prev => new Set([...prev, classItem.title]));
                               alert(`✅ Reminder set for ${classItem.title}`);
@@ -1034,7 +1033,7 @@ function Schedule() {
                     )}
                   </div>
                 </div>
- 
+
                 <div
                   className="d-flex flex-wrap gap-3"
                   style={{ fontSize: "0.875rem", color: "#64748b" }}
@@ -1043,7 +1042,7 @@ function Schedule() {
                     <Calendar size={16} />
                     {classItem.date}
                   </div>
- 
+
                   <div className="d-flex align-items-center gap-1">
                     <svg
                       width="16"
@@ -1059,7 +1058,7 @@ function Schedule() {
                     {classItem.time}
                   </div>
                 </div>
- 
+
                 <div
                   className="d-flex flex-wrap gap-3 mt-2"
                   style={{ fontSize: "0.875rem", color: "#64748b" }}
@@ -1078,7 +1077,7 @@ function Schedule() {
                     </svg>
                     {classItem.location}
                   </div>
- 
+
                   <div className="d-flex align-items-center gap-1">
                     <svg
                       width="16"
@@ -1095,7 +1094,7 @@ function Schedule() {
                     </svg>
                     {classItem.students}
                   </div>
- 
+
                   <span className={`schedule-badge`}>{classItem.type}</span>
                 </div>
               </div>
@@ -1134,46 +1133,7 @@ function Schedule() {
               </div>
             </div>
  
-            {/* Help Card */}
-            <div
-              className="schedule-card p-4"
-              style={{
-                background: "linear-gradient(135deg, #2B75B0, #37AFAC)",
-                color: "white",
-              }}
-            >
-              <h5
-                style={{
-                  fontSize: "1.125rem",
-                  fontWeight: "600",
-                  marginBottom: "8px",
-                }}
-              >
-                Need Help?
-              </h5>
- 
-              <p
-                style={{
-                  fontSize: "0.875rem",
-                  marginBottom: "16px",
-                  opacity: 0.9,
-                }}
-              >
-                Chat with Kavya AI Tutor for study tips and schedule planning.
-              </p>
- 
-                <button
-                  className="btn btn-light w-100"
-                  onClick={() => setIsSmallChatOpen(true)}
-                >
-                  Start Chat
-                </button>
-                {isSmallChatOpen && (
-                  <div style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 4000 }}>
-                    <SmallChatBox initialCategory={"Live Classes"} onClose={() => setIsSmallChatOpen(false)} />
-                  </div>
-                )}
-            </div>
+
           </div>
         </div>
  

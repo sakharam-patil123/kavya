@@ -5,6 +5,7 @@ const {
     getEvents,
     getMyEvents,
     getUpcomingEvents,
+    getEventsByCourse,
     enrollInEvent,
     updateEvent,
     deleteEvent,
