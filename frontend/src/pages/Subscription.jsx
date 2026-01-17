@@ -48,6 +48,7 @@ function CourseCard({ course, onEnroll, isFavorite, onToggleFavorite }) {
 
       <div className="course-card-content">
         {course.isPremium && <span className="premium-badge">PREMIUM</span>}
+        <span className="language-badge">{course.language}</span>
 
         <div className="course-image-container">
           <div className="course-image-wrapper">
@@ -63,8 +64,8 @@ function CourseCard({ course, onEnroll, isFavorite, onToggleFavorite }) {
         </div>
 
         <div className="course-info">
-          <p className="course-language">{course.language}</p>
           <h3 className="course-title">{course.title}</h3>
+          <div className="course-price">{`₹${course.price ?? 0}`}</div>
         </div>
 
         <div className="course-stats">
@@ -144,6 +145,7 @@ function CourseListing({ onCourseSelect }) {
                 language: course.language || 'English',
                 image: course.thumbnail || 'default',
                 students: `${course.enrolledStudents?.length || 0} students`,
+                price: course.price || 0,
                 rating: course.rating || 4.5,
                 reviews: course.reviews || 0,
                 isPremium: course.isPremium !== false,

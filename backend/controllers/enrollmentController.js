@@ -53,11 +53,14 @@ exports.createEnrollment = async (req, res) => {
             });
         }
 
-        // Create pending enrollment
+        // Create pending enrollment with explicit progress fields
         const enrollment = await Enrollment.create({
             studentId: req.user._id,
             courseId: courseId,
-            enrollmentStatus: 'pending'
+            enrollmentStatus: 'pending',
+            progressPercentage: 0,
+            completedLessons: [],
+            watchHours: 0
         });
 
         res.status(201).json({
@@ -118,6 +121,10 @@ exports.activateEnrollment = async (req, res) => {
         // Mark as paid and ensure isFree is false
         enrollment.purchaseStatus = 'paid';
         enrollment.isFree = false;
+        // Ensure progress fields are initialized for per-course tracking
+        enrollment.progressPercentage = enrollment.progressPercentage ?? 0;
+        enrollment.completedLessons = enrollment.completedLessons || [];
+        enrollment.watchHours = enrollment.watchHours || 0;
         enrollment.enrolledAt = new Date();
         await enrollment.save();
 
@@ -187,7 +194,7 @@ exports.getEnrollmentStatus = async (req, res) => {
             enrolled: enrolledFlag,
             status: enrollment.enrollmentStatus,
             enrollmentId: enrollment._id,
-            progressPercentage: enrollment.progressPercentage,
+            progressPercentage: enrollment.progressPercentage ?? 0,
             completed: enrollment.completed,
             isFree,
             purchaseStatus,
