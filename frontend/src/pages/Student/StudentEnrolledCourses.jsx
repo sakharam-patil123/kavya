@@ -6,7 +6,6 @@ import './StudentCourses.css';
 
 const StudentEnrolledCourses = () => {
   const [courses, setCourses] = useState([]);
-  const [progressByCourseId, setProgressByCourseId] = useState({});
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -18,14 +17,7 @@ const StudentEnrolledCourses = () => {
     try {
       const res = await axiosClient.get('/api/student/enrolled-courses');
       console.log('GET /api/student/enrolled-courses response:', res.data);
-      const list = res.data.data || [];
-      setCourses(list);
-      // Build progress map keyed by course id to avoid reusing shared state
-      const map = {};
-      list.forEach(c => {
-        map[c._id] = (c.progress && (c.progress.completionPercentage ?? 0)) || 0;
-      });
-      setProgressByCourseId(map);
+      setCourses(res.data.data || []);
     } catch (error) {
       console.error('Failed to load enrolled courses:', error);
     } finally {
@@ -77,12 +69,12 @@ const StudentEnrolledCourses = () => {
                   {/* <div className="progress-section" style={{ marginTop: 8 }}>
                     <div className="progress-info">
                       <span>Progress</span>
-                      <span className="progress-percentage">{progressByCourseId[course._id] ?? 0}%</span>
+                      <span className="progress-percentage">{course.progress?.completionPercentage || 0}%</span>
                     </div>
                     <div className="progress-bar">
                       <div 
                         className="progress-fill" 
-                        style={{ width: `${progressByCourseId[course._id] ?? 0}%` }}
+                        style={{ width: `${course.progress?.completionPercentage || 0}%` }}
                       ></div>
                     </div>
                   </div> */}
@@ -92,7 +84,7 @@ const StudentEnrolledCourses = () => {
                     onClick={() => handleContinueLearning(course._id)}
                     style={{ marginTop: 12 }}
                   >
-                    {progressByCourseId[course._id] === 100 ? 'Review' : 'Continue Learning'}
+                    {course.progress?.completionPercentage === 100 ? 'Review' : 'Continue Learning'}
                   </button>
                 </div>
               </div>
