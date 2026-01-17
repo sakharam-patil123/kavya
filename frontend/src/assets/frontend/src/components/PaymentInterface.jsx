@@ -33,6 +33,9 @@ const PaymentInterface = () => {
     confirmDetails: null,
   });
 
+  // Pricing state for order summary
+  const [pricing, setPricing] = useState({ subtotal: 0, discount: 0, total: 0, count: 1 });
+
   const navigate = useNavigate(); // <-- Added
 
   // If the payment page is opened with query params, persist them so other
@@ -56,6 +59,32 @@ const PaymentInterface = () => {
       // ignore localStorage errors
     }
   }, []);
+
+  // Load course price and compute discount (40%)
+  useEffect(() => {
+    let mounted = true;
+    const loadPricing = async () => {
+      try {
+        const courseId = window.localStorage.getItem('currentCourseId');
+        if (!courseId) return;
+        const res = await fetch(`/api/courses/${courseId}`);
+        if (!res.ok) return;
+        const body = await res.json();
+        const course = body && (body.data || body);
+        const price = Number(course?.price ?? 0) || 0;
+        const subtotal = price;
+        const discount = Math.round(subtotal * 0.4); // 40%
+        const total = Math.max(0, subtotal - discount);
+        if (mounted) setPricing({ subtotal, discount, total, count: 1 });
+      } catch (e) {
+        console.warn('Failed to load course for pricing', e);
+      }
+    };
+    loadPricing();
+    return () => { mounted = false; };
+  }, []);
+
+  const formatCurrency = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 
   const formatCardNumber = (value) => {
     const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
@@ -162,8 +191,8 @@ const PaymentInterface = () => {
       }
 
               // Start processing immediately (non-blocking overlay)
-              const details = { method: 'Card', amount: '₹519' };
-              processPaymentRequest({ method: 'Card', amount: '₹519', details });
+              const details = { method: 'Card', amount: formatCurrency(pricing.total) };
+              processPaymentRequest({ method: 'Card', amount: formatCurrency(pricing.total), details });
       return;
     }
 
@@ -189,8 +218,8 @@ const PaymentInterface = () => {
       }
 
           // Start processing immediately (non-blocking overlay)
-          const details = { method: `UPI (${state.upiGateway})`, amount: '₹519', upi: state.upiId };
-          processPaymentRequest({ method: `UPI (${state.upiGateway})`, amount: '₹519', details });
+          const details = { method: `UPI (${state.upiGateway})`, amount: formatCurrency(pricing.total), upi: state.upiId };
+          processPaymentRequest({ method: `UPI (${state.upiGateway})`, amount: formatCurrency(pricing.total), details });
       return;
     }
 
@@ -202,8 +231,8 @@ const PaymentInterface = () => {
       }
 
       // Start processing immediately (non-blocking overlay)
-      const details = { method: 'NetBanking', amount: '₹519', email: state.netbankEmail };
-      processPaymentRequest({ method: 'NetBanking', amount: '₹519', details });
+      const details = { method: 'NetBanking', amount: formatCurrency(pricing.total), email: state.netbankEmail };
+      processPaymentRequest({ method: 'NetBanking', amount: formatCurrency(pricing.total), details });
       return;
     }
 
@@ -387,25 +416,23 @@ const PaymentInterface = () => {
                 {/* Card Form */}
                 {state.paymentMethod === "cards" && (
                   <div className="card-form">
-                    <div className="form-group">
-                      <label className="form-label">Card Number</label>
-                      <input
-                        type="text"
-                        placeholder="1234 5678 9012 3456"
-                        value={state.cardNumber}
-                        onChange={handleCardNumberChange}
-                        maxLength={19}
-                        className="form-input"
-                      />
-                    </div>
+                          <span className="price-label" style={{color:'black'}}>Original Price:</span>
+                          <span className="price-value">{formatCurrency(pricing.subtotal)}</span>
+                        </div>
+                        <div className="price-row">
+                          <span className="price-label" style={{color:'black'}}>Discounts (40% Off):</span>
+                          <span className="price-value discount">-{formatCurrency(pricing.discount)}</span>
+                        </div>
+                      </div>
 
-                    <div className="form-group">
-                      <label className="form-label">Cardholder Name</label>
-                      <input
-                        type="text"
-                        placeholder="John Doe"
-                        value={state.cardholderName}
-                        onChange={(e) =>
+                      <div className="price-divider"></div>
+
+                      <div className="total-section">
+                        <div className="total-row">
+                          <span className="total-label">Total ({pricing.count} course{pricing.count>1? 's':''}):</span>
+                          <span className="total-amount">{formatCurrency(pricing.total)}</span>
+                        </div>
+                      </div>
                           handleInputChange("cardholderName", e.target.value)
                         }
                         className="form-input"
@@ -561,11 +588,11 @@ const PaymentInterface = () => {
                 <div className="price-details">
                   <div className="price-row">
                     <span className="price-label">Original Price:</span>
-                    <span className="price-value">₹3,009</span>
+                    <span className="price-value">{formatCurrency(pricing.subtotal)}</span>
                   </div>
                   <div className="price-row">
-                    <span className="price-label">Discounts (83% Off):</span>
-                    <span className="price-value discount">-₹2,490</span>
+                    <span className="price-label">Discounts (40% Off):</span>
+                    <span className="price-value discount">-{formatCurrency(pricing.discount)}</span>
                   </div>
                 </div>
 
@@ -573,8 +600,8 @@ const PaymentInterface = () => {
 
                 <div className="total-section">
                   <div className="total-row">
-                    <span className="total-label">Total (1 course):</span>
-                    <span className="total-amount">₹519</span>
+                    <span className="total-label">Total ({pricing.count} course{pricing.count>1? 's':''}):</span>
+                    <span className="total-amount">{formatCurrency(pricing.total)}</span>
                   </div>
                 </div>
 
@@ -616,7 +643,7 @@ const PaymentInterface = () => {
                       </svg>
                       <div style={{ marginLeft: 8 }}>
                         <div style={{ fontWeight: 600 }}>Payment Successful</div>
-                        <div style={{ fontSize: 13 }}>{`You paid ${state.confirmDetails?.amount || '₹519'}. Redirecting...`}</div>
+                        <div style={{ fontSize: 13 }}>{`You paid ${state.confirmDetails?.amount || formatCurrency(pricing.total)}. Redirecting...`}</div>
                       </div>
                     </div>
                   </div>

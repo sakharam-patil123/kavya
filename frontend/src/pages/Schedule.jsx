@@ -110,6 +110,30 @@ function AddEventModal({ isOpen, onClose, onAdd, userRole, presetDate }) {
             _id: res._id
           });
         } else {
+          // Local fallback: mark event as local and attach expiry based on end time
+          const computeLocalExpiry = (dateStr, timeStr) => {
+            try {
+              if (!dateStr) return null;
+              const base = new Date(dateStr);
+              if (isNaN(base)) return null;
+              const parts = (timeStr || '').split('-').map(p => p.trim());
+              const endPart = parts[1] || parts[0] || '';
+              const m = endPart.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/i);
+              let hh = 23, mm = 59;
+              if (m) {
+                hh = parseInt(m[1], 10);
+                mm = m[2] ? parseInt(m[2], 10) : 0;
+                const mer = (m[3] || '').toUpperCase();
+                if (mer === 'PM' && hh !== 12) hh += 12;
+                if (mer === 'AM' && hh === 12) hh = 0;
+              }
+              base.setHours(hh, mm, 0, 0);
+              return base.toISOString();
+            } catch (err) {
+              return null;
+            }
+          };
+
           onAdd({
             title: newEvent.title,
             instructor: newEvent.instructor,
@@ -118,11 +142,37 @@ function AddEventModal({ isOpen, onClose, onAdd, userRole, presetDate }) {
             location: newEvent.location,
             students: `${newEvent.maxStudents || 30} students`,
             type: newEvent.type,
-            status: 'Scheduled'
+            status: 'Scheduled',
+            _local: true,
+            localExpiresAt: computeLocalExpiry(newEvent.date, timeRange)
           });
         }
       } catch (err) {
         console.warn('API create event failed, falling back to local state', err.message || err);
+        // On network error, also persist as local event with expiry
+        const computeLocalExpiry = (dateStr, timeStr) => {
+          try {
+            if (!dateStr) return null;
+            const base = new Date(dateStr);
+            if (isNaN(base)) return null;
+            const parts = (timeStr || '').split('-').map(p => p.trim());
+            const endPart = parts[1] || parts[0] || '';
+            const m = endPart.match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/i);
+            let hh = 23, mm = 59;
+            if (m) {
+              hh = parseInt(m[1], 10);
+              mm = m[2] ? parseInt(m[2], 10) : 0;
+              const mer = (m[3] || '').toUpperCase();
+              if (mer === 'PM' && hh !== 12) hh += 12;
+              if (mer === 'AM' && hh === 12) hh = 0;
+            }
+            base.setHours(hh, mm, 0, 0);
+            return base.toISOString();
+          } catch (err) {
+            return null;
+          }
+        };
+
         onAdd({
           title: newEvent.title,
           instructor: newEvent.instructor,
@@ -131,6 +181,8 @@ function AddEventModal({ isOpen, onClose, onAdd, userRole, presetDate }) {
           location: newEvent.location,
           students: `${newEvent.maxStudents} students`,
           type: newEvent.type,
+          _local: true,
+          localExpiresAt: computeLocalExpiry(newEvent.date, timeRange)
         });
       }
       onClose();
@@ -306,6 +358,8 @@ function Schedule() {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [upcomingCount, setUpcomingCount] = useState(0);
   const [upcomingClasses, setUpcomingClasses] = useState([]);
+  // Background-sync storage key for locally-created events
+  const LOCAL_EVENTS_KEY = 'schedule_local_events_v1';
 
   // Define weekStart early so it's available for effects
   const weekStart = useMemo(() => {
@@ -661,7 +715,20 @@ function Schedule() {
           status: e.status || 'Scheduled',
           _id: e._id
         }));
-        setUpcomingClasses(mapped);
+        // Preserve any locally-created events that haven't expired and are not duplicated by server
+        const now = Date.now();
+        const storedLocal = loadLocalEventsFromStorage();
+        const localKeep = (storedLocal || []).filter(l => l && l._local).filter(l => {
+          try {
+            if (!l.localExpiresAt) return true; // keep if unknown
+            return new Date(l.localExpiresAt).getTime() > now;
+          } catch (err) { return true; }
+        }).filter(local => {
+          // avoid duplicates: same title+date+time
+          return !mapped.some(m => m.title === local.title && m.date === local.date && m.time === local.time);
+        });
+
+        setUpcomingClasses([...mapped, ...localKeep]);
         
         // Fetch reminders from backend notifications
         await fetchRemindersFromBackend();
@@ -669,8 +736,7 @@ function Schedule() {
       }
 
       if (Array.isArray(res)) {
-        setUpcomingCount(res.length || 0);
-        setUpcomingClasses(res.map((e) => ({
+        const mapped = res.map((e) => ({
           title: e.title,
           instructor: e.instructor && (e.instructor.fullName || e.instructor.email) || 'TBD',
           date: e.date ? new Date(e.date).toLocaleDateString() : 'TBD',
@@ -680,8 +746,23 @@ function Schedule() {
           type: e.type || 'Live Class',
           status: e.status || 'Scheduled',
           _id: e._id
-        })));
-        
+        }));
+
+        // Preserve any locally-created events that haven't expired and are not duplicated by server
+        const now = Date.now();
+        const storedLocal = loadLocalEventsFromStorage();
+        const localKeep = (storedLocal || []).filter(l => l && l._local).filter(l => {
+          try {
+            if (!l.localExpiresAt) return true;
+            return new Date(l.localExpiresAt).getTime() > now;
+          } catch (err) { return true; }
+        }).filter(local => {
+          return !mapped.some(m => m.title === local.title && m.date === local.date && m.time === local.time);
+        });
+
+        setUpcomingCount((mapped.length || 0) + localKeep.length);
+        setUpcomingClasses([...mapped, ...localKeep]);
+
         // Fetch reminders from backend notifications
         await fetchRemindersFromBackend();
         return;
@@ -695,6 +776,150 @@ function Schedule() {
       setUpcomingClasses([]);
     }
   };
+
+  // --- Local events persistence & background sync helpers ---
+  const loadLocalEventsFromStorage = () => {
+    try {
+      const raw = window.localStorage.getItem(LOCAL_EVENTS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      // filter out expired
+      const now = Date.now();
+      return parsed.filter(ev => {
+        try {
+          if (!ev._local) return false;
+          if (!ev.localExpiresAt) return true;
+          return new Date(ev.localExpiresAt).getTime() > now;
+        } catch (err) {
+          return true;
+        }
+      });
+    } catch (err) {
+      console.warn('Failed to load local events from storage', err);
+      return [];
+    }
+  };
+
+  const saveLocalEventsToStorage = (events) => {
+    try {
+      window.localStorage.setItem(LOCAL_EVENTS_KEY, JSON.stringify(events));
+    } catch (err) {
+      console.warn('Failed to save local events', err);
+    }
+  };
+
+  const addLocalEventToStorage = (evt) => {
+    try {
+      const existing = loadLocalEventsFromStorage();
+      existing.push(evt);
+      saveLocalEventsToStorage(existing);
+    } catch (err) {
+      console.warn('Failed to add local event to storage', err);
+    }
+  };
+
+  const removeLocalEventFromStorage = (evt) => {
+    try {
+      const existing = loadLocalEventsFromStorage();
+      const filtered = existing.filter(e => !(e.title === evt.title && e.date === evt.date && e.time === evt.time));
+      saveLocalEventsToStorage(filtered);
+    } catch (err) {
+      console.warn('Failed to remove local event from storage', err);
+    }
+  };
+
+  // Try to persist any local events to backend. On success replace local item with server event
+  const attemptSyncLocalEvents = async () => {
+    try {
+      const pending = loadLocalEventsFromStorage();
+      if (!pending || pending.length === 0) return;
+      const api = await import('../api');
+      for (const ev of pending) {
+        try {
+          // Skip if already expired
+          if (ev.localExpiresAt && new Date(ev.localExpiresAt).getTime() <= Date.now()) {
+            removeLocalEventFromStorage(ev);
+            continue;
+          }
+
+          const payload = {
+            title: ev.title,
+            instructor: ev.instructor,
+            date: ev.date,
+            startTime: ev.time ? ev.time.split('-')[0].trim() : undefined,
+            endTime: ev.time ? ev.time.split('-')[1]?.trim() : undefined,
+            location: ev.location,
+            type: ev.type
+          };
+
+          const res = await api.createEvent(payload);
+          if (res && res._id) {
+            // map server event to display format
+            const serverEvt = {
+              title: res.title,
+              instructor: res.instructor && (res.instructor.fullName || res.instructor.email) || ev.instructor,
+              date: res.date ? new Date(res.date).toLocaleDateString() : ev.date,
+              time: `${res.startTime || ev.time?.split('-')[0]?.trim() || 'TBD'} - ${res.endTime || ev.time?.split('-')[1]?.trim() || 'TBD'}`,
+              location: res.location || ev.location || 'Online',
+              students: (res.enrolledStudents || []).length + ' students',
+              type: res.type || ev.type || 'Live Class',
+              status: res.status || 'Scheduled',
+              _id: res._id
+            };
+
+            // Replace local event in upcomingClasses state
+            setUpcomingClasses(prev => {
+              const withoutLocal = (prev || []).filter(p => !(p._local && p.title === ev.title && p.date === ev.date && p.time === ev.time));
+              return [serverEvt, ...withoutLocal];
+            });
+
+            // remove from storage
+            removeLocalEventFromStorage(ev);
+            // update counts
+            setUpcomingCount(c => (c || 0));
+          }
+        } catch (err) {
+          // keep trying later
+          // console.warn('Sync event failed, will retry', err);
+        }
+      }
+    } catch (err) {
+      console.warn('Background sync failed', err);
+    }
+  };
+
+  // Load persisted local events on mount and schedule periodic sync
+  useEffect(() => {
+    try {
+      const stored = loadLocalEventsFromStorage();
+      if (stored.length > 0) {
+        // merge with upcomingClasses (avoid duplicates)
+        setUpcomingClasses(prev => {
+          const prevList = prev || [];
+          const merged = [...prevList];
+          stored.forEach(le => {
+            const exists = merged.some(m => m.title === le.title && m.date === le.date && m.time === le.time);
+            if (!exists) merged.unshift(le);
+          });
+          setUpcomingCount((merged.length || 0));
+          return merged;
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to load persisted local events', err);
+    }
+
+    // start periodic background sync
+    const syncInterval = setInterval(() => {
+      attemptSyncLocalEvents();
+    }, 10000);
+
+    // try an immediate sync too
+    attemptSyncLocalEvents();
+
+    return () => clearInterval(syncInterval);
+  }, []);
 
   // Fetch reminders from backend notifications
   const fetchRemindersFromBackend = async () => {
@@ -1142,12 +1367,22 @@ function Schedule() {
           isOpen={isAddOpen}
           onClose={() => setIsAddOpen(false)}
           onAdd={(evt) => {
+            // persist local-created events to localStorage so they survive reloads
+            if (evt && evt._local) {
+              try { addLocalEventToStorage(evt); } catch (err) { /* ignore */ }
+            }
             setClasses((prev) => [...prev, evt]);
             // Add locally so creator sees the event immediately
             setUpcomingClasses((prev) => [evt, ...prev]);
             setUpcomingCount((c) => (c || 0) + 1);
-            // Refresh upcoming classes from server as well
-            fetchUpcomingClasses().catch(() => {});
+            // If the event was persisted on the server (has an _id), refresh immediately.
+            // If not persisted (student-local fallback), avoid overwriting the local event
+            // by delaying the refresh so the local entry remains visible.
+            if (evt && evt._id) {
+              fetchUpcomingClasses().catch(() => {});
+            } else {
+              setTimeout(() => fetchUpcomingClasses().catch(() => {}), 5000);
+            }
           }}
           userRole={userRole}
           presetDate={presetDate}
@@ -1159,4 +1394,4 @@ function Schedule() {
  
 export { AddEventModal };
 export default Schedule;
- 
+   
