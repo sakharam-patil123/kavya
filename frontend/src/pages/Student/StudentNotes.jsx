@@ -20,20 +20,20 @@ const StudentNotes = () => {
 
   useEffect(() => { load(); }, []);
 
-  if (loading) return <AppLayout><div style={{ padding: 20 }}>Loading notes...</div></AppLayout>;
+  if (loading) return <AppLayout><div className="student-notes-page" style={{ padding: 20, color: 'var(--text)' }}>Loading notes...</div></AppLayout>;
 
   return (
     <AppLayout>
-      <div>
-        <h2>Notes</h2>
+      <div className="student-notes-page">
+        <h2 style={{ color: 'var(--text)' }}>Notes</h2>
         {notes.length === 0 ? (
-          <div>No notes available.</div>
+          <div style={{ color: 'var(--text)' }}>No notes available.</div>
         ) : (
-          <ul>
+          <ul style={{ listStyle: 'none', padding: 0 }}>
             {notes.map(n => (
-              <li key={n._id} style={{ marginBottom: 10 }}>
-                <a href={n.url} target="_blank" rel="noreferrer">{n.title}</a>
-                <div style={{ fontSize: 12, color: '#666' }}>{new Date(n.createdAt).toLocaleString()}</div>
+              <li key={n._id} style={{ marginBottom: 10, color: 'var(--text)', backgroundColor: 'white', padding: '10px', borderRadius: '4px' }}>
+                <a href={n.url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>{n.title}</a>
+                <div style={{ fontSize: 12, color: 'black' }}>{new Date(n.createdAt).toLocaleString()}</div>
               </li>
             ))}
           </ul>

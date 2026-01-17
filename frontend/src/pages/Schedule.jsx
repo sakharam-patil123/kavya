@@ -11,7 +11,9 @@ function AddEventModal({ isOpen, onClose, onAdd, userRole, presetDate }) {
     type: "Live Class",
     date: "",
     startTime: "",
+    startPeriod: "AM",
     endTime: "",
+    endPeriod: "AM",
     location: "",
     maxStudents: 30,
   });
@@ -71,20 +73,20 @@ function AddEventModal({ isOpen, onClose, onAdd, userRole, presetDate }) {
       alert('Cannot create events for past dates');
       return;
     }
-    const timeRange = `${form.startTime} - ${form.endTime}`;
+    const timeRange = `${form.startTime} ${form.startPeriod} - ${form.endTime} ${form.endPeriod}`;
     const newEvent = userRole === 'student' ? {
       title: form.title,
       instructor: form.instructor,
       type: form.type,
       date: form.date,
-      startTime: form.startTime,
-      endTime: form.endTime
+      startTime: `${form.startTime} ${form.startPeriod}`,
+      endTime: `${form.endTime} ${form.endPeriod}`
     } : {
       title: form.title,
       instructor: form.instructor,
       date: form.date,
-      startTime: form.startTime,
-      endTime: form.endTime,
+      startTime: `${form.startTime} ${form.startPeriod}`,
+      endTime: `${form.endTime} ${form.endPeriod}`,
       location: form.location || "Online",
       maxStudents: form.maxStudents,
       type: form.type,
@@ -196,25 +198,53 @@ function AddEventModal({ isOpen, onClose, onAdd, userRole, presetDate }) {
                 min={new Date().toISOString().slice(0, 10)}
               />
             </div>
-            <div className="col-md-3">
+            <div className="col-md-6">
               <label className="form-label">Start Time</label>
-              <input
-                type="time"
-                name="startTime"
-                value={form.startTime}
-                onChange={handleChange}
-                className="form-control"
-              />
+              <div className="d-flex gap-2 align-items-end">
+                <div style={{ flex: 1 }}>
+                  <input
+                    type="time"
+                    name="startTime"
+                    value={form.startTime}
+                    onChange={handleChange}
+                    className="form-control"
+                  />
+                </div>
+                <select
+                  name="startPeriod"
+                  value={form.startPeriod}
+                  onChange={handleChange}
+                  className="form-select"
+                  style={{ flex: 0, minWidth: "80px" }}
+                >
+                  <option>AM</option>
+                  <option>PM</option>
+                </select>
+              </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-md-6">
               <label className="form-label">End Time</label>
-              <input
-                type="time"
-                name="endTime"
-                value={form.endTime}
-                onChange={handleChange}
-                className="form-control"
-              />
+              <div className="d-flex gap-2 align-items-end">
+                <div style={{ flex: 1 }}>
+                  <input
+                    type="time"
+                    name="endTime"
+                    value={form.endTime}
+                    onChange={handleChange}
+                    className="form-control"
+                  />
+                </div>
+                <select
+                  name="endPeriod"
+                  value={form.endPeriod}
+                  onChange={handleChange}
+                  className="form-select"
+                  style={{ flex: 0, minWidth: "80px" }}
+                >
+                  <option>AM</option>
+                  <option>PM</option>
+                </select>
+              </div>
             </div>
  
             {/* Only show these fields to instructors/admins (hide for student/parent) */}
