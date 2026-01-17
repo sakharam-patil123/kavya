@@ -66,7 +66,7 @@ const StudentEnrolledCourses = () => {
                     <strong>Access:</strong> {course.accessType || 'Paid'}
                   </div>
 
-                  <div className="progress-section" style={{ marginTop: 8 }}>
+                  {/* <div className="progress-section" style={{ marginTop: 8 }}>
                     <div className="progress-info">
                       <span>Progress</span>
                       <span className="progress-percentage">{course.progress?.completionPercentage || 0}%</span>
@@ -77,7 +77,7 @@ const StudentEnrolledCourses = () => {
                         style={{ width: `${course.progress?.completionPercentage || 0}%` }}
                       ></div>
                     </div>
-                  </div>
+                  </div> */}
 
                   <button 
                     className="btn btn-continue"
